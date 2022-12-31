@@ -1,23 +1,39 @@
 #![deny(clippy::all)]
 
 use std::collections::HashMap;
+use lazy_static::lazy_static;
 mod utils;
+mod core;
+
+use crate::core::{scan_by_entry};
 #[macro_use]
 extern crate napi_derive;
 
-#[napi]
-pub fn sum(a: i32, b: i32) -> i32 {
-  a + b
+
+
+lazy_static! {
+   static ref ALIAS: HashMap<String,String> = HashMap::new();
+   static ref BASIC_CONFIG: HashMap<String,String> = HashMap::new();
 }
+
 
 #[napi(object)]
 pub struct ConfigObject {
-  pub path: Option<String>,
+  /** 应当是一个完整的路径 */
+  pub path: String,
   pub alias: Option<HashMap<String,String>>
 }
 
+
 #[napi]
-pub fn init(config: ConfigObject) -> Option<String> {
-  let entry:Option<String> = config.path;
-  entry
+pub fn init(config: ConfigObject) {
+  let entry = config.path;
+  let alias = match config.alias {
+    Some(alias_config) => alias_config,
+    None => {
+      let default_config:HashMap<String, String> = HashMap::new();
+      default_config
+    }
+  };
+  scan_by_entry(entry, alias);
 }

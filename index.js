@@ -236,7 +236,6 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { sum, init } = nativeBinding
+const { init } = nativeBinding
 
-module.exports.sum = sum
 module.exports.init = init
