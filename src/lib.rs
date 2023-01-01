@@ -21,7 +21,8 @@ lazy_static! {
 pub struct ConfigObject {
   /** 应当是一个完整的路径 */
   pub path: String,
-  pub alias: Option<HashMap<String,String>>
+  pub alias: Option<HashMap<String,String>>,
+  pub excludes: Option<Vec<String>>
 }
 
 
@@ -35,5 +36,12 @@ pub fn init(config: ConfigObject) {
       default_config
     }
   };
-  scan_by_entry(entry, alias);
+  let excludes = match config.excludes {
+    Some(excludes_collect) => excludes_collect,
+    None => {
+      let default_excludes:Vec<String> = vec![];
+      default_excludes
+    }
+  };
+  scan_by_entry(entry, alias, excludes);
 }
