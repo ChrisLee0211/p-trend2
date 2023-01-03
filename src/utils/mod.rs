@@ -11,11 +11,11 @@ pub fn read_file_to_string(path:&String) -> Result<String,Error> {
 /**
  * 从路径中获取文件名称
  */
-pub fn get_file_name_by_path(path_string:&String) -> Option<String> {
+pub fn get_file_name_by_path(path_string:&String) -> String {
     let path_ins = Path::new(path_string);
-    let file_name = path_ins.file_name()?;
-    let result = file_name.to_str()?;
-    Some(result.to_string())
+    let file_name = path_ins.file_name().expect("can not resolve entry file name to &OsStr");
+    let result = file_name.to_str().expect("fail to transfer &OsStr to &str");
+    result.to_string()
 }
 
 /**

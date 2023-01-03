@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::{fs, io::Error, env};
 use crate::utils::{Stack, get_file_name_by_path};
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct FileNode {
     file_path: String,
     file_name: String,
@@ -30,12 +30,11 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
     let file_hash_map:HashMap<String, FileNodeForHash> = HashMap::new();
     let mut stack:Stack<&FileNode> = Stack::new();
 
-    let entry_file_name = get_file_name_by_path(&entry).expect("can not resolve entry file name");
+    let entry_file_name = get_file_name_by_path(&entry);
     let mut root_file_node = FileNode::new(entry.clone(), entry_file_name, true);
 
     let mut node_cursor = &root_file_node;
     stack.push(&root_file_node);
-
 
     while stack.len > 0 {
         let mut current_node = stack.pop().expect("fail to pop file node in stack");
@@ -45,10 +44,12 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
             let path = file.path();
     
             let path_str = path.to_str().expect("fail to transfer path to string").to_string();
+            let file_name = get_file_name_by_path(&path_str);
             let metadata = fs::metadata(&path)?;
             let is_folder = metadata.file_type().is_dir();
+            let file_node = FileNode::new(path_str,file_name,true);
             if (is_folder) {
-                
+                stack.push(&file_node);
             } else {
 
             }
