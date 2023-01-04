@@ -1,20 +1,33 @@
 use std::collections::HashMap;
 use std::{fs, io::Error, env};
 use crate::utils::{Stack, get_file_name_by_path};
-
+mod  parser;
+use parser::parse_deps_by_file_path;
 #[derive(Debug,Clone)]
 pub struct FileNode {
     file_path: String,
     file_name: String,
     is_folder:bool,
     deps:Vec<String>,
-    parent: Option<Box<FileNode>>,
+    parent_path: String,
     children:Vec<Box<FileNode>>
 }
 
 impl FileNode {
     pub fn new(path:String, name:String, is_folder:bool) -> FileNode {
-        FileNode { file_path: path, file_name: name, is_folder, deps: vec![], parent: None, children: vec![] }
+        FileNode { file_path: path, file_name: name, is_folder, deps: vec![], parent_path: String::from(""), children: vec![] }
+    }
+
+    pub fn set_parent(&mut self, path_string:String) {
+        self.parent_path = path_string;
+    }
+
+    pub fn insert_child(&mut self, node:Box<FileNode>) {
+        self.children.push(node);
+    }
+
+    pub fn set_deps(&mut self, deps:Vec<String>) { 
+        self.deps = deps;
     }
 }
 
@@ -28,13 +41,13 @@ pub struct FileNodeForHash {
 
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, excludes:Vec<String>) -> Result<(), Error> {
     let file_hash_map:HashMap<String, FileNodeForHash> = HashMap::new();
-    let mut stack:Stack<&FileNode> = Stack::new();
+    let mut stack:Stack<Box<FileNode>> = Stack::new();
 
     let entry_file_name = get_file_name_by_path(&entry);
     let mut root_file_node = FileNode::new(entry.clone(), entry_file_name, true);
 
-    let mut node_cursor = &root_file_node;
-    stack.push(&root_file_node);
+    let mut node_cursor = root_file_node.clone();
+    stack.push(Box::new(root_file_node));
 
     while stack.len > 0 {
         let mut current_node = stack.pop().expect("fail to pop file node in stack");
@@ -47,11 +60,16 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
             let file_name = get_file_name_by_path(&path_str);
             let metadata = fs::metadata(&path)?;
             let is_folder = metadata.file_type().is_dir();
-            let file_node = FileNode::new(path_str,file_name,true);
+            let mut file_node = FileNode::new(path_str,file_name,true);
+            file_node.set_parent(node_cursor.file_path.clone());
             if (is_folder) {
-                stack.push(&file_node);
+                stack.push(Box::new(file_node.clone()));
             } else {
-
+                let deps:Vec<String> = parse_deps_by_file_path(&path_str);
+                let reference_path:Vec<String> = vec![];
+                file_node.set_deps(deps);
+                let file_node_for_hash = FileNodeForHash{node: Box::new(file_node.clone()), referencePath:reference_path};
+                file_hash_map.insert(path_str.clone(), file_node_for_hash);
             }
         }
     }
