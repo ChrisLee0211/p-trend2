@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::{fs, io::Error, env};
 use crate::utils::{Stack, get_file_name_by_path};
 
-// mod  parser;
+mod  parser;
 
 #[derive(Debug,Clone)]
 pub struct FileNode {
@@ -47,7 +47,7 @@ impl FileNodeForHash {
 }
 
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, excludes:Vec<String>) -> Result<(), Error> {
-    let file_hash_map:HashMap<String, FileNodeForHash> = HashMap::new();
+    let mut file_hash_map:HashMap<String, FileNodeForHash> = HashMap::new();
     let mut stack:Stack<Box<FileNode>> = Stack::new();
 
     let entry_file_name = get_file_name_by_path(&entry);
@@ -67,13 +67,14 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
             let file_name = get_file_name_by_path(&path_str);
             let metadata = fs::metadata(&path)?;
             let is_folder = metadata.file_type().is_dir();
-            let mut file_node = FileNode::new(path_str,file_name,true);
+            let mut file_node = FileNode::new(path_str.clone(),file_name.clone(),true);
             file_node.set_parent(node_cursor.file_path.clone());
             if (is_folder) {
                 stack.push(Box::new(file_node.clone()));
                 node_cursor = file_node;
             } else {
-                // let deps:Vec<String> = parser::parse_deps_by_file_name(&file_name);
+                let file_name_clone = file_name.clone();
+                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_name_clone);
                 let reference_path:Vec<String> = vec![];
                 file_node.set_deps(deps);
                 let file_node_for_hash = FileNodeForHash::new(Box::new(file_node.clone()),reference_path);
