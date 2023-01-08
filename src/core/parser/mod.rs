@@ -1,13 +1,24 @@
 use std::vec;
 
-use regex::{Regex};
-mod jsPlugin;
+use regex::{Regex, Error};
+mod js_plugin;
+mod ts_plugin;
+mod vue_plugin;
+mod less_plugin;
 pub enum CodeType {
-    Vue,
+    VUE,
     JS,
     TS,
     DTS,
     LESS
+}
+
+pub trait ParserPlugin {
+    fn new() -> Self;
+
+    fn match_code_type(&self, name:&String) -> Result<CodeType, Error>;
+
+    fn import_parser(&self,file_name:&String) -> Vec<String>;
 }
 
 pub fn get_code_type(name:&String) -> Result<CodeType, String> {
@@ -25,7 +36,7 @@ pub fn get_code_type(name:&String) -> Result<CodeType, String> {
     }
     let vue_reg = Regex::new(r"\.(vue)$").expect("fail to init regex for .vue");
     if vue_reg.is_match(name) {
-       return Ok(CodeType::Vue)
+       return Ok(CodeType::VUE)
     }
     let less_reg = Regex::new(r"\.(less)$").expect("fail to init regex for .less");
     if less_reg.is_match(name) {
@@ -35,7 +46,11 @@ pub fn get_code_type(name:&String) -> Result<CodeType, String> {
 }
 
 pub fn parse_deps_by_file_name(name:&String) -> Vec<String> {
-    let js_parser = jsPlugin::JsParser::new();
+    let js_parser = js_plugin::JsParser::new();
+    let ts_parser = ts_plugin::TsParser::new();
+    let vue_parser = vue_plugin::VueParser::new();
+    let less_parser = less_plugin::LessParser::new();
+
     let r:Vec<String> = vec![];
     r
     
