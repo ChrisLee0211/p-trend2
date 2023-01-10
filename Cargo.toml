@@ -11,6 +11,8 @@ crate-type = ["cdylib"]
 napi = { version = "2.10.0", default-features = false, features = ["napi4"] }
 napi-derive = "2.9.1"
 swc="0.236.0"
+swc_ecma_parser  = "0.123.14"
+swc_common = "0.29.25"
 regex="1.7.0"
 lazy_static="1.4.0"
 

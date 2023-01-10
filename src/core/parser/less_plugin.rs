@@ -18,7 +18,7 @@ impl ParserMethods for LessParser {
     }
 
     fn parse_import(&self, file_name:&String) -> Vec<String> {
-        let res:Vec<String> = vec![];
+        let mut res:Vec<String> = vec![];
         let code_type = self.match_code_type(file_name);
         match code_type {
             Ok(res) => {

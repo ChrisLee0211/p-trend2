@@ -1,6 +1,6 @@
 use std::vec;
 
-use regex::{Regex, Error};
+use regex::{Error};
 mod js_plugin;
 mod ts_plugin;
 mod vue_plugin;
@@ -42,7 +42,7 @@ pub fn parse_deps_by_file_name(name:&String) -> Vec<String> {
             Box::new(less_parser)
         ]
     };
-    let r:Vec<String> = parser_plugins.collect_import(name);
-    r
+    let result:Vec<String> = parser_plugins.collect_import(name);
+    result
     
 }
