@@ -32,13 +32,29 @@ impl ParserMethods for JsParser {
                     let fm = cm
                         .load_file(Path::new("foo.js"))
                         .expect("failed to load file");
+                    let parse_error_message = String::from("Fail to parse code") + file_name;
                     let module = parse_file_as_module(
                         &fm, 
                         Default::default(),
                         Default::default(),
                         None,
-                        &mut vec![]).unwrap();
-                    // module.body
+                        &mut vec![]).expect(&parse_error_message);
+                    let mut code_ast_body = module.body;
+                    for module_item in &mut code_ast_body {
+                        if module_item.is_module_decl() {
+                            let decl_token = module_item.as_mut_module_decl().expect("fail to get module declare ast node");
+                            if decl_token.is_import() {
+                                let import_path = decl_token.as_mut_import()
+                                .expect("fail to get import token")
+                                .src.raw
+                                .expect("fail to transform import token box to atom")
+                                .to_string();
+                            }
+                        }
+                        if module_item.is_stmt() {
+
+                        }
+                    }
                 }
             },
             Err(err) => {
