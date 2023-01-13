@@ -18,20 +18,21 @@ impl ParserMethods for JsParser {
         if js_reg.is_match(name) {
             return Ok(true)
          } else {
-            return Err(Error::Syntax(String::from("fail to match js reg")))
+            return Ok(false)
          }
     }
 
     fn parse_import(&self, file_name:&String) -> Vec<String> {
-        let res:Vec<String> = vec![];
+        let mut import_list:Vec<String> = vec![];
         let code_type = self.match_code_type(file_name);
         match code_type {
             Ok(res) => {
                 if res {
                     let cm = Arc::<SourceMap>::default();
+                    let errorMsg = String::from("failed to load file by") + file_name;
                     let fm = cm
-                        .load_file(Path::new("foo.js"))
-                        .expect("failed to load file");
+                        .load_file(Path::new(file_name))
+                        .expect(&errorMsg);
                     let parse_error_message = String::from("Fail to parse code") + file_name;
                     let module = parse_file_as_module(
                         &fm, 
@@ -46,13 +47,13 @@ impl ParserMethods for JsParser {
                             if decl_token.is_import() {
                                 let import_path = decl_token.as_mut_import()
                                 .expect("fail to get import token")
-                                .src.raw
-                                .expect("fail to transform import token box to atom")
-                                .to_string();
+                                .src
+                                .value.to_string();
+                                import_list.push(import_path);
                             }
                         }
                         if module_item.is_stmt() {
-
+                            
                         }
                     }
                 }
@@ -61,6 +62,6 @@ impl ParserMethods for JsParser {
              println!("{:?}",err)
             }
         }
-        res
+        import_list
      }
 }

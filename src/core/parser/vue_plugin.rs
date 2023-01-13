@@ -13,7 +13,7 @@ impl ParserMethods for VueParser {
         if vue_reg.is_match(name) {
             return Ok(true)
          } else {
-            return Err(Error::Syntax(String::from("fail to match vue reg")))
+            return Ok(false)
          }
     }
 

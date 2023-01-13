@@ -32,13 +32,14 @@ impl FileNode {
     }
 }
 
-
+#[derive(Debug)]
 pub struct FileNodeForHash {
     // 节点指向
     node: Box<FileNode>,
     // 被引用的节点path
     referencePath: Vec<String>
 }
+
 
 impl FileNodeForHash {
     pub fn new(node:Box<FileNode>, referencePath:Vec<String>) -> FileNodeForHash {
@@ -65,6 +66,8 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
     
             let path_str = path.to_str().expect("fail to transfer path to string").to_string();
             let file_name = get_file_name_by_path(&path_str);
+            println!("当前文件{:?}",&file_name);
+            println!("当前文件路径{:?}",&path_str);
             let metadata = fs::metadata(&path)?;
             let is_folder = metadata.file_type().is_dir();
             let mut file_node = FileNode::new(path_str.clone(),file_name.clone(),true);
@@ -73,8 +76,9 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
                 stack.push(Box::new(file_node.clone()));
                 node_cursor = file_node;
             } else {
-                let file_name_clone = file_name.clone();
+                let file_name_clone = path_str.clone();
                 let deps:Vec<String> = parser::parse_deps_by_file_name(&file_name_clone);
+                println!("{:?}",&deps);
                 let reference_path:Vec<String> = vec![];
                 file_node.set_deps(deps);
                 let file_node_for_hash = FileNodeForHash::new(Box::new(file_node.clone()),reference_path);

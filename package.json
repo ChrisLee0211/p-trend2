@@ -47,10 +47,11 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build --platform --release",
+    "build": "napi build  --platform --release",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava",
+    "debug": "node test/test.js",
     "version": "napi version"
   },
   "packageManager": "yarn@3.2.4"

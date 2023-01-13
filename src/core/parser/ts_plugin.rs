@@ -13,7 +13,7 @@ impl ParserMethods for TsParser {
         if ts_reg.is_match(name) && dts_reg.is_match(name) {
             return Ok(true)
          } else {
-            return Err(Error::Syntax(String::from("fail to match ts reg")))
+            return Ok(false)
          }
     }
 

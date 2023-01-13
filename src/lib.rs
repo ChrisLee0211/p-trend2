@@ -45,3 +45,8 @@ pub fn init(config: ConfigObject) {
   };
   scan_by_entry(entry, alias, excludes);
 }
+
+#[napi]
+pub fn test_fn() {
+  println!("test")
+}

@@ -13,7 +13,7 @@ impl ParserMethods for LessParser {
         if less_reg.is_match(name) {
             return Ok(true)
          } else {
-            return Err(Error::Syntax(String::from("fail to match less reg")))
+            return Ok(false)
          }
     }
 

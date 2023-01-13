@@ -7,5 +7,7 @@ export interface ConfigObject {
   /** 应当是一个完整的路径  */
   path: string
   alias?: Record<string, string>
+  excludes?: Array<string>
 }
 export function init(config: ConfigObject): void
+export function testFn(): void
