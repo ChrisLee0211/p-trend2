@@ -66,8 +66,6 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
     
             let path_str = path.to_str().expect("fail to transfer path to string").to_string();
             let file_name = get_file_name_by_path(&path_str);
-            println!("当前文件{:?}",&file_name);
-            println!("当前文件路径{:?}",&path_str);
             let metadata = fs::metadata(&path)?;
             let is_folder = metadata.file_type().is_dir();
             let mut file_node = FileNode::new(path_str.clone(),file_name.clone(),true);
