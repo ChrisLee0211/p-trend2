@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::{fs, io::Error, env};
-use crate::utils::{Stack, get_file_name_by_path};
+use std::{fs, io::Error, env, path};
+use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths};
 
 mod  parser;
 
@@ -48,7 +48,10 @@ impl FileNodeForHash {
 }
 
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, excludes:Vec<String>) -> Result<(), Error> {
-    let mut file_hash_map:HashMap<String, FileNodeForHash> = HashMap::new();
+    // 存储所有解析出来的fileNode的列表
+    let mut whole_file_nodes_for_hash:Vec<FileNodeForHash> = vec![];
+    // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
+    let mut file_hash_map:HashMap<String, Box<usize>> = HashMap::new();
     let mut stack:Stack<Box<FileNode>> = Stack::new();
 
     let entry_file_name = get_file_name_by_path(&entry);
@@ -62,25 +65,29 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
         let current_node_path = &current_node.file_path;
         for file in fs::read_dir(current_node_path)? {
             let file = file?;
-            let path = file.path();
-    
-            let path_str = path.to_str().expect("fail to transfer path to string").to_string();
-            let file_name = get_file_name_by_path(&path_str);
-            let metadata = fs::metadata(&path)?;
+            let path_buffer = file.path();
+            let file_node_paths = normalize_file_node_path(&current_node_path,&path_buffer);
+            let FileNodePaths {normal_path, file_name, absolute_path, absolute_path_with_file_name} = &file_node_paths;
+            let metadata = fs::metadata(&path_buffer)?;
             let is_folder = metadata.file_type().is_dir();
-            let mut file_node = FileNode::new(path_str.clone(),file_name.clone(),true);
+            let mut file_node = FileNode::new(absolute_path_with_file_name.clone(),file_name.clone(),true);
             file_node.set_parent(node_cursor.file_path.clone());
-            if (is_folder) {
+            if is_folder {
                 stack.push(Box::new(file_node.clone()));
                 node_cursor = file_node;
             } else {
-                let file_name_clone = path_str.clone();
-                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_name_clone);
-                println!("{:?}",&deps);
+                let file_path_clone = absolute_path_with_file_name.clone();
+                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone);
+                println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path_with_file_name);
                 let reference_path:Vec<String> = vec![];
                 file_node.set_deps(deps);
                 let file_node_for_hash = FileNodeForHash::new(Box::new(file_node.clone()),reference_path);
-                file_hash_map.insert(path_str.clone(), file_node_for_hash);
+                whole_file_nodes_for_hash.push(file_node_for_hash);
+                let index = whole_file_nodes_for_hash.len() - 1;
+                let enable_paths:Vec<String> = get_enbale_paths(&file_node_paths);
+                for enable_path in enable_paths {
+                    file_hash_map.insert(enable_path, Box::new(index));
+                };
             }
         }
     }

@@ -10,7 +10,7 @@ impl ParserMethods for TsParser {
     fn match_code_type(&self, name:&String) -> Result<bool, Error> {
         let ts_reg = Regex::new(self.rule)?;
         let dts_reg = Regex::new(r"\.\d\.ts")?;
-        if ts_reg.is_match(name) && dts_reg.is_match(name) {
+        if ts_reg.is_match(name) && !dts_reg.is_match(name) {
             return Ok(true)
          } else {
             return Ok(false)
