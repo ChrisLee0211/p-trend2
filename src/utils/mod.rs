@@ -47,6 +47,9 @@ pub struct FileNodePaths {
    pub file_name: String
 }
 
+/**
+ * 通过当前节点的文件目录和pathBuf计算出绝对路径、文件名等重要信息
+ */
 pub fn normalize_file_node_path(current_node_path:&String,path_buffer: &PathBuf) -> FileNodePaths {
     let normal_path = path_buffer.as_path().to_str().expect("fail to resolve file path as str").to_string();
 
@@ -64,10 +67,18 @@ pub fn normalize_file_node_path(current_node_path:&String,path_buffer: &PathBuf)
         normal_path,
         file_name
     };
-    println!("file_node_paths ===> {:?}", &result);
     result
 }
 
+/**
+ * 通过文件路径信息集合计算出该文件被引用时可以使用的有效路径
+ * 比如：
+ * A文件绝对路径 user/src/utils/index.js; C文件绝对路径 user/src/utils/timezone.js
+ * B文件中可以这样引用A： import xx from 'user/src/utils'
+ * 也可以这样引用A: import xx from 'user/src/utils/index'
+ * 可以这样引用C：import xx from 'user/src/utils/timezone.js'
+ * 也可以这样引用C：import xx from 'user/src/utils/timezone'
+ */
 pub fn get_enbale_paths(file_node_paths: &FileNodePaths) -> Vec<String> {
     let FileNodePaths {normal_path,file_name,absolute_path,absolute_path_with_file_name} = file_node_paths;
     let mut result:Vec<String> = vec![];
