@@ -1,12 +1,12 @@
 use regex::{Regex, Error};
-use std::{path::Path, sync::Arc};
+use std::{path::Path, sync::Arc, collections::HashMap, rc::Rc, cell::RefCell};
 use super::{ParserMethods};
 use swc_ecma_parser::{parse_file_as_module};
 use swc_ecma_ast::{Lit};
 use swc_common::{
     SourceMap,
 };
-
+use crate::core::parser::common::{get_import_paths_by_ast};
 #[derive(Debug)]
 pub struct JsParser {
    pub rule: &'static str
@@ -22,7 +22,7 @@ impl ParserMethods for JsParser {
          }
     }
 
-    fn parse_import(&self, path:&String) -> Vec<String> {
+    fn parse_import(&self, path:&String, alias_map: Rc<RefCell<HashMap<String, String>>>) -> Vec<String> {
         let mut import_list:Vec<String> = vec![];
         let code_type = self.match_code_type(path);
         match code_type {
@@ -42,49 +42,7 @@ impl ParserMethods for JsParser {
                         None,
                         &mut vec![]).expect(&parse_error_message);
                     let mut code_ast_body = module.body;
-                    for module_item in &mut code_ast_body {
-                        if module_item.is_module_decl() {
-                            let decl_token = module_item.as_mut_module_decl().expect("fail to get module declare ast node");
-                            if decl_token.is_import() {
-                                let import_path = decl_token.as_mut_import()
-                                .expect("fail to get import token")
-                                .src
-                                .value.to_string();
-                                import_list.push(import_path);
-                                continue;
-                            }
-                        }
-                        if module_item.is_stmt() {
-                            println!("is stmt ===> {:?}",path);
-                            let statement_token = module_item.as_mut_stmt().expect("fail to get statement ast node");
-                            println!("{:?}",statement_token);
-                            if statement_token.is_expr() {
-                                let expression = statement_token.as_expr()
-                                .expect("fail to get expression statement");
-                                let expression_token = &expression.expr;
-                                if expression_token.is_call(){
-                                    let call_expression = expression_token.as_call().expect("fail to get call expression ast node");
-                                    let callee = &call_expression.callee;
-                                    if callee.is_import() {
-                                        let callee_args = &call_expression.args;
-                                        let first_arg = callee_args.get(0).expect("fail to get callee first arg");
-                                        if first_arg.expr.is_lit() {
-                                            let lit = first_arg.expr.as_lit().expect("fail to get callee first arg by lit");
-                                            match lit {
-                                                Lit::Str(token) => {
-                                                    let import_path = token.value.to_string();
-                                                    import_list.push(import_path);
-                                                }
-                                                _ => ()
-                                            }
-                                        }
-                                    }
-                                    
-                                }
-                                
-                            }
-                        }
-                    }
+                    import_list = get_import_paths_by_ast(&mut code_ast_body);
                 }
             },
             Err(err) => {

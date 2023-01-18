@@ -1,3 +1,5 @@
+use std::{collections::HashMap, rc::Rc, cell::RefCell};
+
 use regex::{Regex, Error};
 
 use super::{ ParserMethods};
@@ -17,7 +19,7 @@ impl ParserMethods for TsParser {
          }
     }
 
-    fn parse_import(&self, file_name:&String) -> Vec<String> {
+    fn parse_import(&self, file_name:&String, alias_map: Rc<RefCell<HashMap<String, String>>>) -> Vec<String> {
         let res:Vec<String> = vec![];
         let code_type = self.match_code_type(file_name);
         match code_type {

@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -42,17 +41,22 @@ pub struct FileNodeForHash {
     // 节点指向
     node: Rc<RefCell<FileNode>>,
     // 被引用的节点path
-    referencePath: Vec<String>
+    referencePath: Rc<RefCell<Vec<String>>>
 }
 
 
 impl FileNodeForHash {
-    pub fn new(node:Rc<RefCell<FileNode>>, referencePath:Vec<String>) -> FileNodeForHash {
-        FileNodeForHash{node,referencePath}
+    pub fn new(node:Rc<RefCell<FileNode>>, reference_path:Vec<String>) -> FileNodeForHash {
+        FileNodeForHash{node,referencePath: Rc::new(RefCell::new(reference_path))}
+    }
+
+    pub fn add_reference(&mut self, path:String) {
+        self.referencePath.borrow_mut().push(path);
     }
 }
 
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, excludes:Vec<String>) -> Result<(), Error> {
+    let alias_map = Rc::new(RefCell::new(alias_config));
     // 存储所有解析出来的fileNode的列表
     let mut whole_file_nodes_for_hash:Vec<FileNodeForHash> = vec![];
     // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
@@ -62,8 +66,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
     let entry_file_name = get_file_name_by_path(&entry);
     let root_file_node:Rc<RefCell<FileNode>> = Rc::new(RefCell::new(FileNode::new(entry.clone(), entry_file_name, true)));
 
-    // let mut node_cursor = &mut root_file_node.clone();
-    // let mut file_node_target:&mut FileNode;
+
     stack.push(root_file_node.clone());
 
     while stack.len > 0 {
@@ -74,18 +77,17 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
             let file = file?;
             let path_buffer = file.path();
             let file_node_paths = normalize_file_node_path(&current_node_path,&path_buffer);
-            let FileNodePaths {normal_path, file_name, absolute_path, absolute_path_with_file_name} = &file_node_paths;
+            let FileNodePaths {normal_path:_, file_name, absolute_path:_, absolute_path_with_file_name} = &file_node_paths;
 
             let is_folder = fs::metadata(&path_buffer)?.file_type().is_dir();
-            let mut file_node = Rc::new(RefCell::new(FileNode::new(absolute_path_with_file_name.clone(),file_name.clone(),true)));
+            let file_node = Rc::new(RefCell::new(FileNode::new(absolute_path_with_file_name.clone(),file_name.clone(),true)));
             current_node.borrow_mut().insert_child(file_node.clone());
             file_node.borrow_mut().set_parent(current_node_path.clone());
             if is_folder {
-
                 stack.push(file_node.clone());
             } else {
                 let file_path_clone = absolute_path_with_file_name.clone();
-                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone);
+                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone, alias_map.clone());
                 println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path_with_file_name);
                 let reference_path:Vec<String> = vec![];
                 file_node.borrow_mut().set_deps(deps);
