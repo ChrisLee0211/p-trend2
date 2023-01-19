@@ -42,7 +42,7 @@ impl ParserMethods for JsParser {
                         None,
                         &mut vec![]).expect(&parse_error_message);
                     let mut code_ast_body = module.body;
-                    import_list = get_import_paths_by_ast(&mut code_ast_body);
+                    import_list = get_import_paths_by_ast(&mut code_ast_body, alias_map);
                 }
             },
             Err(err) => {

@@ -1,6 +1,12 @@
+use std::{cell::RefCell, collections::HashMap};
+use std::rc::Rc;
 use swc_ecma_ast::{ModuleItem, Lit};
 
-pub fn get_import_paths_by_ast(code_ast_body:&mut Vec<ModuleItem>)-> Vec<String> {
+pub fn replace_alias_for_import_path (import_path:String, alias:&HashMap<String, String>) {
+    
+}
+
+pub fn get_import_paths_by_ast(code_ast_body:&mut Vec<ModuleItem>, alias_map: Rc<RefCell<HashMap<String, String>>>)-> Vec<String> {
     let mut import_list:Vec<String> = vec![];
     for module_item in  code_ast_body {
         if module_item.is_module_decl() {
