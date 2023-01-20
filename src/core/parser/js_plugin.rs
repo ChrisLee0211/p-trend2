@@ -22,7 +22,7 @@ impl ParserMethods for JsParser {
          }
     }
 
-    fn parse_import(&self, path:&String, alias_map: Rc<RefCell<HashMap<String, String>>>) -> Vec<String> {
+    fn parse_import(&self, path:&String, alias_map: &HashMap<String, String>) -> Vec<String> {
         let mut import_list:Vec<String> = vec![];
         let code_type = self.match_code_type(path);
         match code_type {

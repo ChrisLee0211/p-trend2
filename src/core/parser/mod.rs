@@ -11,7 +11,7 @@ pub trait ParserMethods {
 
     fn match_code_type(&self, name:&String) -> Result<bool, Error>;
 
-    fn parse_import(&self,file_name:&String, alias_map: Rc<RefCell<HashMap<String, String>>>) -> Vec<String>;
+    fn parse_import(&self,file_name:&String, alias_map: &HashMap<String, String>) -> Vec<String>;
 }
 
 pub struct Plugins {
@@ -19,17 +19,17 @@ pub struct Plugins {
 }
 
 impl Plugins {
-    pub fn collect_import(&self, name:&String, alias_map: Rc<RefCell<HashMap<String, String>>>) -> Vec<String> {
+    pub fn collect_import(&self, name:&String, alias_map: &HashMap<String, String>) -> Vec<String> {
         let mut result:Vec<String> = vec![];
         for plugin in self.plugins.iter() {
             if &result.len() != &0 { break }
-            result = plugin.parse_import(name, alias_map.clone());
+            result = plugin.parse_import(name, alias_map);
         }
         return result
     }
 }
 
-pub fn parse_deps_by_file_name(name:&String, alias_config: Rc<RefCell<HashMap<String, String>>>) -> Vec<String> {
+pub fn parse_deps_by_file_name(name:&String, alias_config: &HashMap<String, String>) -> Vec<String> {
     let js_parser = js_plugin::JsParser {rule:r"\.(js|jsx)$"};
     let ts_parser = ts_plugin::TsParser{rule:r"\.(ts|tsx)$"};
     let vue_parser = vue_plugin::VueParser{rule:r"\.(vue)$"};

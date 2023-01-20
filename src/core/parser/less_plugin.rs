@@ -19,7 +19,7 @@ impl ParserMethods for LessParser {
          }
     }
 
-    fn parse_import(&self, file_name:&String, alias_map: Rc<RefCell<HashMap<String, String>>>) -> Vec<String> {
+    fn parse_import(&self, file_name:&String, alias_map: &HashMap<String, String>) -> Vec<String> {
         let mut res:Vec<String> = vec![];
         let code_type = self.match_code_type(file_name);
         match code_type {

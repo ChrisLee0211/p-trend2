@@ -56,7 +56,7 @@ impl FileNodeForHash {
 }
 
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, excludes:Vec<String>) -> Result<(), Error> {
-    let alias_map = Rc::new(RefCell::new(alias_config));
+    // let alias_map = Rc::new(RefCell::new(alias_config));
     // 存储所有解析出来的fileNode的列表
     let mut whole_file_nodes_for_hash:Vec<FileNodeForHash> = vec![];
     // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
@@ -87,7 +87,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
                 stack.push(file_node.clone());
             } else {
                 let file_path_clone = absolute_path_with_file_name.clone();
-                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone, alias_map.clone());
+                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone, &alias_config);
                 println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path_with_file_name);
                 let reference_path:Vec<String> = vec![];
                 file_node.borrow_mut().set_deps(deps);
