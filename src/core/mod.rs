@@ -55,7 +55,44 @@ impl FileNodeForHash {
     }
 }
 
+pub struct  NpmPackages {
+    pub pkg_map: HashMap<String, i32>,
+}
+
+impl NpmPackages {
+    pub fn new(list: Vec<String>) -> NpmPackages {
+        let mut pkg_map:HashMap<String, i32> = HashMap::new();
+        for npm in list.iter() {
+            pkg_map.insert(npm.to_string(), 0);
+        };
+        return NpmPackages { pkg_map };
+    }
+
+    pub fn check_is_npm_pkg(&self,target:&String) -> bool {
+        let match_target = self.pkg_map.get(target);
+        match match_target {
+            Some(_) => true,
+            None => false
+        }
+    }
+
+    pub fn add_npm_reference_count(&mut self, target:&String) -> Result<i32, String> {
+        let original_target = self.pkg_map.get(target);
+        match original_target {
+            Some(num) => {
+                let result = num + 1;
+                self.pkg_map.insert(target.to_string(), result);
+                return Ok(result)
+            }
+            None => {
+                return Err(String::from("fail to get npm package in pkg_map"))
+            }
+        }
+    }
+}
+
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_packages:Vec<String> , excludes:Vec<String>) -> Result<(), Error> {
+    let mut npm_map = NpmPackages::new(npm_packages);
     // 存储所有解析出来的fileNode的列表
     let mut whole_file_nodes_for_hash:Vec<FileNodeForHash> = vec![];
     // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
@@ -89,15 +126,12 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
                 let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone);
                 let normalize_deps: Vec<String>= deps.iter()
                 .filter(|&dep_path| {
-                    let match_path_result = npm_packages.iter().find(|&npm_path| npm_path.eq(dep_path));
-                    match match_path_result {
-                        Some(path) => {
-                            return true;
-                        },
-                        None => {
-                            return false
-                        }
+                    let is_npm = npm_map.check_is_npm_pkg(dep_path);
+                    if is_npm {
+                        let err_msg = String::from("fail to add npm reference count by")+dep_path;
+                        npm_map.add_npm_reference_count(dep_path).expect(&err_msg);
                     }
+                    return is_npm
                 })
                 .map(move |dep_path| {
                     let result:String = String::from("_");
