@@ -21,32 +21,15 @@ lazy_static! {
 pub struct ConfigObject {
   /** 应当是一个完整的路径 */
   pub path: String,
-  pub alias: Option<HashMap<String,String>>,
-  pub excludes: Option<Vec<String>>
+  pub alias: HashMap<String,String>,
+  pub npm_packages: Vec<String>,
+  pub excludes: Vec<String>,
 }
 
 
 #[napi]
 pub fn init(config: ConfigObject) {
-  let entry = config.path;
-  let alias = match config.alias {
-    Some(alias_config) => alias_config,
-    None => {
-      let default_config:HashMap<String, String> = HashMap::new();
-      default_config
-    }
-  };
-  let excludes = match config.excludes {
-    Some(excludes_collect) => excludes_collect,
-    None => {
-      let default_excludes:Vec<String> = vec![];
-      default_excludes
-    }
-  };
-  scan_by_entry(entry, alias, excludes);
-}
-
-#[napi]
-pub fn test_fn() {
-  println!("test")
+  // 应该在js层就做好默认值处理，rust只做核心逻辑部分
+  let ConfigObject {path:entry,excludes,alias,npm_packages} = config;
+  scan_by_entry(entry, alias, npm_packages, excludes);
 }

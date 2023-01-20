@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::{fs, io::Error, env, path};
 use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths};
 
-mod  parser;
+mod parser;
 
 #[derive(Debug,Clone)]
 pub struct FileNode {
@@ -55,8 +55,7 @@ impl FileNodeForHash {
     }
 }
 
-pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, excludes:Vec<String>) -> Result<(), Error> {
-    // let alias_map = Rc::new(RefCell::new(alias_config));
+pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_packages:Vec<String> , excludes:Vec<String>) -> Result<(), Error> {
     // 存储所有解析出来的fileNode的列表
     let mut whole_file_nodes_for_hash:Vec<FileNodeForHash> = vec![];
     // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
@@ -87,7 +86,24 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>, exclud
                 stack.push(file_node.clone());
             } else {
                 let file_path_clone = absolute_path_with_file_name.clone();
-                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone, &alias_config);
+                let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone);
+                let normalize_deps: Vec<String>= deps.iter()
+                .filter(|&dep_path| {
+                    let match_path_result = npm_packages.iter().find(|&npm_path| npm_path.eq(dep_path));
+                    match match_path_result {
+                        Some(path) => {
+                            return true;
+                        },
+                        None => {
+                            return false
+                        }
+                    }
+                })
+                .map(move |dep_path| {
+                    let result:String = String::from("_");
+
+                    result
+                }).collect();
                 println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path_with_file_name);
                 let reference_path:Vec<String> = vec![];
                 file_node.borrow_mut().set_deps(deps);

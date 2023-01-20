@@ -1,8 +1,7 @@
 use regex::{Regex, Error};
-use std::{path::Path, sync::Arc, collections::HashMap, rc::Rc, cell::RefCell};
+use std::{path::Path, sync::Arc,};
 use super::{ParserMethods};
 use swc_ecma_parser::{parse_file_as_module};
-use swc_ecma_ast::{Lit};
 use swc_common::{
     SourceMap,
 };
@@ -22,7 +21,7 @@ impl ParserMethods for JsParser {
          }
     }
 
-    fn parse_import(&self, path:&String, alias_map: &HashMap<String, String>) -> Vec<String> {
+    fn parse_import(&self, path:&String) -> Vec<String> {
         let mut import_list:Vec<String> = vec![];
         let code_type = self.match_code_type(path);
         match code_type {
@@ -42,7 +41,7 @@ impl ParserMethods for JsParser {
                         None,
                         &mut vec![]).expect(&parse_error_message);
                     let mut code_ast_body = module.body;
-                    import_list = get_import_paths_by_ast(&mut code_ast_body, alias_map);
+                    import_list = get_import_paths_by_ast(&mut code_ast_body);
                 }
             },
             Err(err) => {
