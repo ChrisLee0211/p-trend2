@@ -5,7 +5,7 @@ mod js_plugin;
 mod ts_plugin;
 mod vue_plugin;
 mod less_plugin;
-mod common;
+pub mod common;
 
 pub trait ParserMethods {
 

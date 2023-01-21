@@ -14,8 +14,10 @@ swc="0.236.0"
 swc_ecma_parser  = "0.123.14"
 swc_ecma_ast = "0.95.9"
 swc_common = "0.29.25"
+
 regex="1.7.0"
 lazy_static="1.4.0"
+resolve-path = "0.1.0"
 
 [build-dependencies]
 napi-build = "2.0.1"

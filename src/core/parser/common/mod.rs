@@ -1,10 +1,12 @@
 use std::{collections::HashMap};
 use swc_ecma_ast::{ModuleItem, Lit};
 
-pub fn replace_alias_for_import_path (import_path:String, alias:&HashMap<String, String>) -> String {
-    let mut result = import_path;
+pub fn replace_alias_for_import_path (import_path:&String, alias:&HashMap<String, String>) -> String {
+    let mut result = import_path.clone();
     for (k,v) in alias.iter() {
-        result = result.replace(k, v);
+        let replace_key = k.clone() + "/";
+        let replace_value = v.clone() + "/";
+        result = result.replace(&replace_key,&replace_value);
     }
     result
 }

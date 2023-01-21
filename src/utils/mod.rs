@@ -22,17 +22,12 @@ pub fn get_file_name_by_path(path_string:&String) -> String {
 /**
  * 以当前相对路径转化为绝对路径，失败则返回原路径
  */
-pub fn get_file_absolute_path(path_string:&String, file_name:Option<&String>) -> String {
-    let absolute_path_result = fs::canonicalize(path_string);
+pub fn get_file_absolute_path(path_string:&String) -> String {
+    let absolute_path_result = Path::canonicalize(Path::new(path_string));
     match absolute_path_result {
         Ok(path_buf) => {
-            if let Some(file_name) = file_name {
-               let absolute_path = path_buf.join(file_name).to_str().expect("fail to transform path buffer to string").to_string();
-               return absolute_path;
-            } else {
-                let absolute_path = path_buf.to_str().expect("fail to transform path buffer to string").to_string();
-                return absolute_path;
-            }
+            let absolute_path = path_buf.to_str().expect("fail to transform path buffer to string").to_string();
+            return absolute_path;
         },
         Err(err) => {
             path_string.to_string()

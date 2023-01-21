@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::{fs, io::Error, env, path};
-use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths};
-
+use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths, get_file_absolute_path};
+use resolve_path::PathResolveExt;
 mod parser;
 
 #[derive(Debug,Clone)]
@@ -113,7 +113,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
             let file = file?;
             let path_buffer = file.path();
             let file_node_paths = normalize_file_node_path(&current_node_path,&path_buffer);
-            let FileNodePaths {normal_path:_, file_name, absolute_path:_, absolute_path_with_file_name} = &file_node_paths;
+            let FileNodePaths {normal_path:_, file_name, absolute_path, absolute_path_with_file_name} = &file_node_paths;
 
             let is_folder = fs::metadata(&path_buffer)?.file_type().is_dir();
             let file_node = Rc::new(RefCell::new(FileNode::new(absolute_path_with_file_name.clone(),file_name.clone(),true)));
@@ -125,22 +125,27 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
                 let file_path_clone = absolute_path_with_file_name.clone();
                 let deps:Vec<String> = parser::parse_deps_by_file_name(&file_path_clone);
                 let normalize_deps: Vec<String>= deps.iter()
-                .filter(|&dep_path| {
+                .map(|dep_path| {
+                    //  替换alias路径别名
+                    return parser::common::replace_alias_for_import_path(&dep_path, &alias_config)
+                })
+                .filter(|dep_path| {
+                    // 移除并标记npm包引用次数
                     let is_npm = npm_map.check_is_npm_pkg(dep_path);
                     if is_npm {
                         let err_msg = String::from("fail to add npm reference count by")+dep_path;
                         npm_map.add_npm_reference_count(dep_path).expect(&err_msg);
                     }
-                    return is_npm
+                    return !is_npm
                 })
-                .map(move |dep_path| {
-                    let result:String = String::from("_");
-
-                    result
-                }).collect();
-                println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path_with_file_name);
+                .map(|dep_path| {
+                    // todo 需要自己实现 .././转绝对路径
+                    return get_file_absolute_path(&dep_path);
+                })
+                .collect();
+                println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path);
                 let reference_path:Vec<String> = vec![];
-                file_node.borrow_mut().set_deps(deps);
+                file_node.borrow_mut().set_deps(normalize_deps);
                 let file_node_for_hash = FileNodeForHash::new(file_node.clone(),reference_path);
                 whole_file_nodes_for_hash.push(file_node_for_hash);
                 let index = whole_file_nodes_for_hash.len() - 1;
