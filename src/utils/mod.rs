@@ -38,8 +38,8 @@ pub fn get_file_absolute_path(path_string:&String) -> String {
 pub fn resolve_related_path_to_absoluted_path(path_string:&String, file_dir:&String) -> String {
     let dot_matcher = ".";
     let double_mather = "..";
-    let mut absolute_prefix_path = Path::new("");
-    let mut target_prefix_path = Path::new("");
+    let absolute_prefix_path = Path::new("");
+    let target_prefix_path = Path::new("");
     let path_buf = Path::new(path_string);
     let mut layers:usize = 0;
     for path_split in path_buf.iter() {
