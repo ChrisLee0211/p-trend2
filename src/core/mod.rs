@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::{fs, io::Error, env, path};
-use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths, get_file_absolute_path};
+use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths, resolve_related_path_to_absoluted_path};
 use resolve_path::PathResolveExt;
 mod parser;
 
@@ -140,7 +140,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
                 })
                 .map(|dep_path| {
                     // todo 需要自己实现 .././转绝对路径
-                    return get_file_absolute_path(&dep_path);
+                    return resolve_related_path_to_absoluted_path(&dep_path, &absolute_path);
                 })
                 .collect();
                 println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path);

@@ -35,6 +35,39 @@ pub fn get_file_absolute_path(path_string:&String) -> String {
     }
 }
 
+pub fn resolve_related_path_to_absoluted_path(path_string:&String, file_dir:&String) -> String {
+    let dot_matcher = ".";
+    let double_mather = "..";
+    let mut absolute_prefix_path = Path::new("");
+    let mut target_prefix_path = Path::new("");
+    let path_buf = Path::new(path_string);
+    let mut layers:usize = 0;
+    for path_split in path_buf.iter() {
+        let path_split_str = path_split.to_str().expect("fail to split dependence path");
+        if path_split_str.eq(dot_matcher) {
+            continue;
+        } 
+        if path_split_str.eq(double_mather) {
+            layers +=1;
+            continue;
+        } 
+        target_prefix_path.to_path_buf().push(&path_split);
+    };
+    let current_file_dir = Path::new(file_dir);
+    let current_file_dir_spilt_vec = current_file_dir.iter()
+    .map(|path_os_str| {
+        return path_os_str.to_str().expect("fail to split current_file_dir").to_string()
+    })
+    .collect::<Vec<String>>();
+    let current_file_dir_spilt_len = current_file_dir_spilt_vec.len();
+    let end = current_file_dir_spilt_len - layers;
+    for i in 0..end {
+        absolute_prefix_path.to_path_buf().push(Path::new(&current_file_dir_spilt_vec.get(i).expect("fail to get string from current_file_dir_spilt_vec")));
+    }
+    let result = absolute_prefix_path.join(target_prefix_path);
+    return result.to_str().expect("fail to resolve_related_path_to_absoluted_path").to_string();
+}
+
 
 
 #[derive(Clone,Debug)]
