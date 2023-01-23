@@ -35,6 +35,11 @@ pub fn get_file_absolute_path(path_string:&String) -> String {
     }
 }
 
+/**
+ * 将相对路径转为绝对路径
+ * @param path_string 转化的路径
+ * @param file_dir 当前文件所在目录
+ */
 pub fn resolve_related_path_to_absoluted_path(path_string:&String, file_dir:&String) -> String {
     let dot_matcher = ".";
     let double_mather = "..";

@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::{fs, io::Error, env, path};
+use std::{fs, io::Error};
+use globmatch::{Builder};
 use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths, resolve_related_path_to_absoluted_path};
-use resolve_path::PathResolveExt;
 mod parser;
 
 #[derive(Debug,Clone)]
@@ -91,6 +91,22 @@ impl NpmPackages {
     }
 }
 
+pub struct ExcludeChecker<'a> {
+    rules:Vec<Rc<Builder<'a>>>
+}
+
+impl <'a>ExcludeChecker<'a> {
+    pub fn new<'b>(excludes:Vec<&'b String>) -> ExcludeChecker<'b> {
+       let mut vec:Vec<Rc<Builder<'b>>> = vec![];
+        for rule in excludes.iter() {
+            vec.push(Rc::new(Builder::new(&rule.clone())))
+        };
+        return ExcludeChecker{
+            rules:vec
+        }
+    }
+}
+
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_packages:Vec<String> , excludes:Vec<String>) -> Result<(), Error> {
     let mut npm_map = NpmPackages::new(npm_packages);
     // 存储所有解析出来的fileNode的列表
@@ -139,7 +155,6 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
                     return !is_npm
                 })
                 .map(|dep_path| {
-                    // todo 需要自己实现 .././转绝对路径
                     return resolve_related_path_to_absoluted_path(&dep_path, &absolute_path);
                 })
                 .collect();

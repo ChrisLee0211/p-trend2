@@ -1,7 +1,6 @@
 #![deny(clippy::all)]
 
 use std::collections::HashMap;
-use lazy_static::lazy_static;
 mod utils;
 mod core;
 
@@ -9,12 +8,6 @@ use crate::core::{scan_by_entry};
 #[macro_use]
 extern crate napi_derive;
 
-
-
-lazy_static! {
-   static ref ALIAS: HashMap<String,String> = HashMap::new();
-   static ref BASIC_CONFIG: HashMap<String,String> = HashMap::new();
-}
 
 
 #[napi(object)]
