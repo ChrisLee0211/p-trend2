@@ -38,8 +38,8 @@ pub fn get_file_absolute_path(path_string:&String) -> String {
 pub fn resolve_related_path_to_absoluted_path(path_string:&String, file_dir:&String) -> String {
     let dot_matcher = ".";
     let double_mather = "..";
-    let absolute_prefix_path = Path::new("");
-    let target_prefix_path = Path::new("");
+    let mut absolute_prefix_path = Path::new("").to_path_buf();
+    let mut target_prefix_path = Path::new("").to_path_buf();
     let path_buf = Path::new(path_string);
     let mut layers:usize = 0;
     for path_split in path_buf.iter() {
@@ -51,8 +51,9 @@ pub fn resolve_related_path_to_absoluted_path(path_string:&String, file_dir:&Str
             layers +=1;
             continue;
         } 
-        target_prefix_path.to_path_buf().push(&path_split);
+        target_prefix_path.push(&path_split);
     };
+
     let current_file_dir = Path::new(file_dir);
     let current_file_dir_spilt_vec = current_file_dir.iter()
     .map(|path_os_str| {
@@ -62,8 +63,8 @@ pub fn resolve_related_path_to_absoluted_path(path_string:&String, file_dir:&Str
     let current_file_dir_spilt_len = current_file_dir_spilt_vec.len();
     let end = current_file_dir_spilt_len - layers;
     for i in 0..end {
-        absolute_prefix_path.to_path_buf().push(Path::new(&current_file_dir_spilt_vec.get(i).expect("fail to get string from current_file_dir_spilt_vec")));
-    }
+        absolute_prefix_path.push(Path::new(&current_file_dir_spilt_vec.get(i).expect("fail to get string from current_file_dir_spilt_vec")));
+    };
     let result = absolute_prefix_path.join(target_prefix_path);
     return result.to_str().expect("fail to resolve_related_path_to_absoluted_path").to_string();
 }
