@@ -96,18 +96,41 @@ pub struct ExcludeChecker<'a> {
 }
 
 impl <'a>ExcludeChecker<'a> {
-    pub fn new<'b>(excludes:Vec<&'b String>) -> ExcludeChecker<'b> {
+    pub fn new<'b>(excludes:&'b Vec<String>) -> ExcludeChecker<'b> {
        let mut vec:Vec<Rc<Builder<'b>>> = vec![];
-        for rule in excludes.iter() {
-            vec.push(Rc::new(Builder::new(&rule.clone())))
-        };
+       let len = excludes.clone().len() - 1;
+       let mut cursor: usize = 0;
+       loop {
+        if cursor == len {break};
+        vec.push(Rc::new(Builder::new(excludes.get(cursor).expect("fail to get exclude rules"))));
+        cursor += 1;
+       }
         return ExcludeChecker{
             rules:vec
         }
     }
+
+    pub fn check(&self,path:&String) -> bool {
+        let mut result = true;
+        let len = self.rules.len() - 1;
+        let mut cursor: usize = 0;
+        loop {
+            if cursor == len {break};
+            if result == false {break};
+            result = self.rules
+            .get(cursor)
+            .expect("fail to load exclude rule in check method")
+            .build_glob()
+            .expect("fail to build glob")
+            .is_match(path);
+            cursor += 1;
+        }
+        return  result;
+    }
 }
 
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_packages:Vec<String> , excludes:Vec<String>) -> Result<(), Error> {
+    let exclude_checker = ExcludeChecker::new(&excludes);
     let mut npm_map = NpmPackages::new(npm_packages);
     // 存储所有解析出来的fileNode的列表
     let mut whole_file_nodes_for_hash:Vec<FileNodeForHash> = vec![];
@@ -123,13 +146,20 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
 
     while stack.len > 0 {
         let current_node = stack.pop().expect("fail to pop file node in stack");
-
+        
         let current_node_path:String = current_node.borrow_mut().file_path.clone();
+        if exclude_checker.check(&current_node_path) == false {
+            continue;
+        }
         for file in fs::read_dir(current_node_path.clone())? {
             let file = file?;
             let path_buffer = file.path();
             let file_node_paths = normalize_file_node_path(&current_node_path,&path_buffer);
             let FileNodePaths {normal_path:_, file_name, absolute_path, absolute_path_with_file_name} = &file_node_paths;
+
+            if exclude_checker.check(absolute_path_with_file_name) == false {
+                continue;
+            }
 
             let is_folder = fs::metadata(&path_buffer)?.file_type().is_dir();
             let file_node = Rc::new(RefCell::new(FileNode::new(absolute_path_with_file_name.clone(),file_name.clone(),true)));
