@@ -27,7 +27,6 @@ pub fn get_import_paths_by_ast(code_ast_body:&mut Vec<ModuleItem>)-> Vec<String>
         }
         if module_item.is_stmt() {
             let statement_token = module_item.as_mut_stmt().expect("fail to get statement ast node");
-            println!("{:?}",statement_token);
             if statement_token.is_expr() {
                 let expression = statement_token.as_expr()
                 .expect("fail to get expression statement");

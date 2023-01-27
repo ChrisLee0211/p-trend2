@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -92,13 +93,13 @@ impl NpmPackages {
 }
 
 pub struct ExcludeChecker<'a> {
-    rules:Vec<Rc<Builder<'a>>>
+    rules:Rc<RefCell<Vec<Rc<Builder<'a>>>>>
 }
 
 impl <'a>ExcludeChecker<'a> {
     pub fn new<'b>(excludes:&'b Vec<String>) -> ExcludeChecker<'b> {
        let mut vec:Vec<Rc<Builder<'b>>> = vec![];
-       let len = excludes.clone().len() - 1;
+       let len = excludes.clone().len();
        let mut cursor: usize = 0;
        loop {
         if cursor == len {break};
@@ -106,18 +107,19 @@ impl <'a>ExcludeChecker<'a> {
         cursor += 1;
        }
         return ExcludeChecker{
-            rules:vec
+            rules:Rc::new(RefCell::new(vec))
         }
     }
 
     pub fn check(&self,path:&String) -> bool {
         let mut result = true;
-        let len = self.rules.len() - 1;
+        let len = self.rules.borrow_mut().len();
         let mut cursor: usize = 0;
         loop {
             if cursor == len {break};
             if result == false {break};
             result = self.rules
+            .borrow_mut()
             .get(cursor)
             .expect("fail to load exclude rule in check method")
             .build_glob()
@@ -148,7 +150,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
         let current_node = stack.pop().expect("fail to pop file node in stack");
         
         let current_node_path:String = current_node.borrow_mut().file_path.clone();
-        if exclude_checker.check(&current_node_path) == false {
+        if exclude_checker.check(&current_node_path) {
             continue;
         }
         for file in fs::read_dir(current_node_path.clone())? {
@@ -157,7 +159,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
             let file_node_paths = normalize_file_node_path(&current_node_path,&path_buffer);
             let FileNodePaths {normal_path:_, file_name, absolute_path, absolute_path_with_file_name} = &file_node_paths;
 
-            if exclude_checker.check(absolute_path_with_file_name) == false {
+            if exclude_checker.check(absolute_path_with_file_name) {
                 continue;
             }
 
@@ -188,7 +190,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
                     return resolve_related_path_to_absoluted_path(&dep_path, &absolute_path);
                 })
                 .collect();
-                println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path);
+                // println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path);
                 let reference_path:Vec<String> = vec![];
                 file_node.borrow_mut().set_deps(normalize_deps);
                 let file_node_for_hash = FileNodeForHash::new(file_node.clone(),reference_path);

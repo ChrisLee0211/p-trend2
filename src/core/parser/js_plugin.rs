@@ -32,7 +32,6 @@ impl ParserMethods for JsParser {
                     let fm = cm
                         .load_file(Path::new(path))
                         .expect(&error_msg);
-                    println!("{:?}",fm);
                     let parse_error_message = String::from("Fail to parse code") + path;
                     let module = parse_file_as_module(
                         &fm, 
