@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -132,18 +131,21 @@ impl <'a>ExcludeChecker<'a> {
 }
 
 pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_packages:Vec<String> , excludes:Vec<String>) -> Result<(), Error> {
+    // 用于过滤exclude规则文件
     let exclude_checker = ExcludeChecker::new(&excludes);
+    // 用于收集npm package依赖引用
     let mut npm_map = NpmPackages::new(npm_packages);
     // 存储所有解析出来的fileNode的列表
-    let mut whole_file_nodes_for_hash:Vec<FileNodeForHash> = vec![];
+    let mut whole_file_nodes_for_hash:Rc<RefCell<Vec<RefCell<FileNodeForHash>>>> = Rc::new(RefCell::new(vec![]));
     // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
     let mut file_hash_map:HashMap<String, Box<usize>> = HashMap::new();
-    let mut stack:Stack<Rc<RefCell<FileNode>>> = Stack::new();
-
+    
+    // 构建入口file_node用于DFS扫描所有文件
     let entry_file_name = get_file_name_by_path(&entry);
     let root_file_node:Rc<RefCell<FileNode>> = Rc::new(RefCell::new(FileNode::new(entry.clone(), entry_file_name, true)));
 
-
+    // 利用栈做深度递归
+    let mut stack:Stack<Rc<RefCell<FileNode>>> = Stack::new();
     stack.push(root_file_node.clone());
 
     while stack.len > 0 {
@@ -194,8 +196,8 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
                 let reference_path:Vec<String> = vec![];
                 file_node.borrow_mut().set_deps(normalize_deps);
                 let file_node_for_hash = FileNodeForHash::new(file_node.clone(),reference_path);
-                whole_file_nodes_for_hash.push(file_node_for_hash);
-                let index = whole_file_nodes_for_hash.len() - 1;
+                whole_file_nodes_for_hash.borrow_mut().push(RefCell::new(file_node_for_hash));
+                let index = whole_file_nodes_for_hash.borrow_mut().len() - 1;
                 let enable_paths:Vec<String> = get_enbale_paths(&file_node_paths);
                 for enable_path in enable_paths {
                     file_hash_map.insert(enable_path, Box::new(index));
@@ -204,7 +206,54 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
         }
     }
 
-    println!("{:?}", root_file_node);
+    let file_nodes_count = whole_file_nodes_for_hash.borrow().len();
+    let mut loop_cursor:usize = 0;
+    loop{
+        if loop_cursor == file_nodes_count {break}
+        mark_reference(loop_cursor,&whole_file_nodes_for_hash,&file_hash_map);
+        loop_cursor += 1;
+    }
+
+    println!("{:?}", whole_file_nodes_for_hash);
    
     Ok(())
+}
+
+pub fn mark_reference(cursor:usize, whole_file_nodes_for_hash:&Rc<RefCell<Vec<RefCell<FileNodeForHash>>>>, file_hash_map:&HashMap<String, Box<usize>>) {
+    let node = whole_file_nodes_for_hash
+    .borrow_mut()
+    .get(cursor)
+    .expect("fail to get deps by whole_file_nodes_for_hash")
+    .borrow_mut()
+    .node.clone();
+
+    let file_node_path = node.borrow_mut().file_path.clone();
+    let deps = node.borrow_mut().deps.clone();
+
+
+    let deps_len = deps.borrow().len();
+
+
+    let mut dep_cursor:usize = 0;
+
+    loop {
+        if dep_cursor == deps_len {break}
+        else {
+            let dep = deps.borrow_mut().get(dep_cursor).expect("fail to get deps by whole_file_nodes_for_hash").clone();
+            let target_index = file_hash_map.get(&dep);
+            match target_index {
+                Some(index) => {
+                    whole_file_nodes_for_hash
+                    .borrow_mut()
+                    .get(*index.clone())
+                    .expect("fail to get file_node_for_hash by index")
+                    .borrow_mut()
+                    .add_reference(file_node_path.clone());
+                }
+                None => {}
+            }
+        }
+        dep_cursor += 1;
+    }
+
 }
