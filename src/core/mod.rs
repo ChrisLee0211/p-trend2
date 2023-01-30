@@ -68,16 +68,14 @@ impl NpmPackages {
         return NpmPackages { pkg_map };
     }
 
-    pub fn check_is_npm_pkg(&self,target:&String) -> bool {
-        let mut result = false;
+    pub fn check_is_npm_pkg(&self,target:&String) -> Option<String> {
         let all_pkg_names = self.pkg_map.keys();
         for pkg in all_pkg_names {
             if target.contains(pkg) {
-                result = true;
-                break;
+                return Some(pkg.clone());
             }
         }
-       return result;
+       return None;
     }
 
     pub fn add_npm_reference_count(&mut self, target:&String) -> Result<i32, String> {
@@ -185,12 +183,15 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
                 })
                 .filter(|dep_path| {
                     // 移除并标记npm包引用次数
-                    let is_npm = npm_map.check_is_npm_pkg(dep_path);
-                    if is_npm {
-                        let err_msg = String::from("fail to add npm reference count by")+dep_path;
-                        npm_map.add_npm_reference_count(dep_path).expect(&err_msg);
+                    let npm = npm_map.check_is_npm_pkg(dep_path);
+                    match npm {
+                        Some(pkg_name) => {
+                            let err_msg = String::from("fail to add npm reference count by") + dep_path;
+                            npm_map.add_npm_reference_count(&pkg_name).expect(&err_msg);
+                            return true;
+                        }
+                        None => false
                     }
-                    return !is_npm
                 })
                 .map(|dep_path| {
                     return resolve_related_path_to_absoluted_path(&dep_path, &absolute_path);
