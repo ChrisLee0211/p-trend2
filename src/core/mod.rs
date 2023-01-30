@@ -69,11 +69,15 @@ impl NpmPackages {
     }
 
     pub fn check_is_npm_pkg(&self,target:&String) -> bool {
-        let match_target = self.pkg_map.get(target);
-        match match_target {
-            Some(_) => true,
-            None => false
+        let mut result = false;
+        let all_pkg_names = self.pkg_map.keys();
+        for pkg in all_pkg_names {
+            if target.contains(pkg) {
+                result = true;
+                break;
+            }
         }
+       return result;
     }
 
     pub fn add_npm_reference_count(&mut self, target:&String) -> Result<i32, String> {
