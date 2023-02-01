@@ -5,6 +5,8 @@ use std::{fs, io::Error};
 use globmatch::{Builder};
 use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths, resolve_related_path_to_absoluted_path};
 mod parser;
+mod io;
+use io::file_node;
 
 #[derive(Debug,Clone)]
 pub struct FileNode {
@@ -219,7 +221,12 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
         loop_cursor += 1;
     }
 
-    println!("{:?}", whole_file_nodes_for_hash);
+    let mut new_root_file_node = io::file_node::FileNode::new(entry);
+
+    dfs(&mut new_root_file_node);
+
+    println!("file tree:{:?}", whole_file_nodes_for_hash);
+    println!("new file tree:{:?}", new_root_file_node);
    
     Ok(())
 }
@@ -261,4 +268,28 @@ pub fn mark_reference(cursor:usize, whole_file_nodes_for_hash:&Rc<RefCell<Vec<Re
         dep_cursor += 1;
     }
 
+}
+
+fn dfs(root_file_node: &mut io::file_node::FileNode) -> Result<(), Error> {
+    for file in fs::read_dir(root_file_node.get_path())? {
+        let path = file?.path();
+        // 创建文件节点
+        let file_node_path: String = match path.canonicalize() {
+            Ok(path_buffer) => {
+                let absolute_path = path_buffer
+                    .to_str()
+                    .expect("fail to transform path buffer to string")
+                    .to_string();
+                absolute_path
+                // return absolute_path;
+            }
+            Err(_) => todo!(),
+        };
+        let mut child = io::file_node::FileNode::new(file_node_path);
+        if (child.is_folder) {
+            dfs(&mut child);
+        }
+        root_file_node.add_child(child);
+    }
+    Ok(())
 }
