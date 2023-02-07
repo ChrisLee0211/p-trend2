@@ -1,12 +1,14 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::{fs, io::Error};
+use std::{fs, io::Error, env};
 use globmatch::{Builder};
+use serde_json;
+use serde::{Serialize, Deserialize};
 use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths, resolve_related_path_to_absoluted_path};
 mod parser;
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,Serialize, Deserialize)]
 pub struct FileNode {
     file_path: String,
     file_name: String,
@@ -41,17 +43,17 @@ pub struct FileNodeForHash {
     // 节点指向
     node: Rc<RefCell<FileNode>>,
     // 被引用的节点path
-    referencePath: Rc<RefCell<Vec<String>>>
+    reference_path: Rc<RefCell<Vec<String>>>
 }
 
 
 impl FileNodeForHash {
     pub fn new(node:Rc<RefCell<FileNode>>, reference_path:Vec<String>) -> FileNodeForHash {
-        FileNodeForHash{node,referencePath: Rc::new(RefCell::new(reference_path))}
+        FileNodeForHash{node,reference_path: Rc::new(RefCell::new(reference_path))}
     }
 
     pub fn add_reference(&mut self, path:String) {
-        self.referencePath.borrow_mut().push(path);
+        self.reference_path.borrow_mut().push(path);
     }
 }
 
@@ -138,7 +140,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
     // 用于收集npm package依赖引用
     let mut npm_map = NpmPackages::new(npm_packages);
     // 存储所有解析出来的fileNode的列表
-    let mut whole_file_nodes_for_hash:Rc<RefCell<Vec<RefCell<FileNodeForHash>>>> = Rc::new(RefCell::new(vec![]));
+    let whole_file_nodes_for_hash:Rc<RefCell<Vec<RefCell<FileNodeForHash>>>> = Rc::new(RefCell::new(vec![]));
     // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
     let mut file_hash_map:HashMap<String, Box<usize>> = HashMap::new();
     
@@ -217,10 +219,14 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
         if loop_cursor == file_nodes_count {break}
         mark_reference(loop_cursor,&whole_file_nodes_for_hash,&file_hash_map);
         loop_cursor += 1;
-    }
-
-    println!("{:?}", whole_file_nodes_for_hash);
-   
+    };
+    let json_string = serde_json::to_string(&root_file_node.borrow().clone()).expect("fail to transform json string");
+    let current_dir = env::current_dir().expect("fail to get current dir pathbuf");
+    println!("current_dir ===> {:?}", &current_dir.join("data.json"));
+    println!("json string ===> {:?}", &json_string);
+    fs::write(current_dir.join("data.json"), json_string).expect("fail to create json");
+    
+    // println!("{:?}", whole_file_nodes_for_hash);
     Ok(())
 }
 
