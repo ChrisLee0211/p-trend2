@@ -14,13 +14,14 @@ pub struct FileNode {
     file_name: String,
     is_folder:bool,
     deps: RefCell<Vec<String>>,
+    pkgs: RefCell<Vec<String>>,
     parent_path: RefCell<String>,
     children: RefCell<Vec<Rc<RefCell<FileNode>>>>
 }
 
 impl FileNode {
     pub fn new(path:String, name:String, is_folder:bool) -> FileNode {
-        FileNode { file_path: path, file_name: name, is_folder, deps: RefCell::new(vec![]), parent_path: RefCell::new(String::from("")), children: RefCell::new(vec![]) }
+        FileNode { file_path: path, file_name: name, is_folder, deps: RefCell::new(vec![]),pkgs: RefCell::new(vec![]),parent_path: RefCell::new(String::from("")), children: RefCell::new(vec![]) }
     }
 
     pub fn set_parent(&mut self, path_string:String) {
@@ -35,6 +36,10 @@ impl FileNode {
         for dependence_path in deps.iter() {
             self.deps.borrow_mut().push(dependence_path.to_string())
         }
+    }
+
+    pub fn insert_pkg(&mut self, npm:String) {
+        self.pkgs.borrow_mut().push(npm);
     }
 }
 
@@ -190,9 +195,10 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
                         Some(pkg_name) => {
                             let err_msg = String::from("fail to add npm reference count by") + dep_path;
                             npm_map.add_npm_reference_count(&pkg_name).expect(&err_msg);
-                            return true;
+                            file_node.borrow_mut().insert_pkg(pkg_name.clone());
+                            return false;
                         }
-                        None => false
+                        None => true
                     }
                 })
                 .map(|dep_path| {
@@ -226,7 +232,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
     println!("json string ===> {:?}", &json_string);
     fs::write(current_dir.join("data.json"), json_string).expect("fail to create json");
     
-    // println!("{:?}", whole_file_nodes_for_hash);
+    println!("{:?}", &root_file_node);
     Ok(())
 }
 
