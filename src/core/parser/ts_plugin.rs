@@ -31,3 +31,8 @@ impl ParserMethods for TsParser {
         res
      }
 }
+
+
+pub fn init_parser() -> TsParser {
+    return TsParser { rule:r"\.(ts|tsx)$" }
+}

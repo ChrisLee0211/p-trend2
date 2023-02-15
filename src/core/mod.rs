@@ -228,8 +228,7 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
     };
     let json_string = serde_json::to_string(&root_file_node.borrow().clone()).expect("fail to transform json string");
     let current_dir = env::current_dir().expect("fail to get current dir pathbuf");
-    println!("current_dir ===> {:?}", &current_dir.join("data.json"));
-    println!("json string ===> {:?}", &json_string);
+
     fs::write(current_dir.join("data.json"), json_string).expect("fail to create json");
     
     println!("{:?}", &root_file_node);

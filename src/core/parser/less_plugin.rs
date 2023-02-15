@@ -31,3 +31,7 @@ impl ParserMethods for LessParser {
         res
      }
 }
+
+pub fn init_parser() -> LessParser {
+    return LessParser { rule:r"\.(less)$"}
+}

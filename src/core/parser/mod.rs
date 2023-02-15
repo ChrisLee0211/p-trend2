@@ -30,10 +30,10 @@ impl Plugins {
 }
 
 pub fn parse_deps_by_file_name(name:&String) -> Vec<String> {
-    let js_parser = js_plugin::JsParser {rule:r"\.(js|jsx)$"};
-    let ts_parser = ts_plugin::TsParser{rule:r"\.(ts|tsx)$"};
-    let vue_parser = vue_plugin::VueParser{rule:r"\.(vue)$"};
-    let less_parser = less_plugin::LessParser{rule:r"\.(less)$"};
+    let js_parser = js_plugin::init_parser();
+    let ts_parser = ts_plugin::init_parser();
+    let vue_parser = vue_plugin::init_parser();
+    let less_parser = less_plugin::init_parser();
     let parser_plugins = Plugins {
         plugins:vec![
             Box::new(js_parser),

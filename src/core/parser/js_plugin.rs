@@ -11,6 +11,7 @@ pub struct JsParser {
    pub rule: &'static str
 }
 
+
 impl ParserMethods for JsParser {
     fn match_code_type(&self, name:&String) -> Result<bool, Error> {
         let js_reg = Regex::new(self.rule)?;
@@ -49,4 +50,8 @@ impl ParserMethods for JsParser {
         }
         import_list
      }
+}
+
+pub fn init_parser() -> JsParser {
+    return JsParser { rule:r"\.(js|jsx)$" }
 }

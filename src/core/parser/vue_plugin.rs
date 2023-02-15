@@ -31,3 +31,7 @@ impl ParserMethods for VueParser {
        res
     }
 }
+
+pub fn init_parser() -> VueParser {
+    return VueParser { rule:r"\.(vue)$" }
+}
