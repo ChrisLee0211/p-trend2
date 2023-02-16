@@ -47,7 +47,7 @@
   },
   "scripts": {
     "artifacts": "napi artifacts",
-    "build": "napi build  --platform --release",
+    "build": "napi build  --platform --release --dts core.d.ts --js core.js",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava",
