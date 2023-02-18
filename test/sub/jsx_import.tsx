@@ -1,1 +1,0 @@
-import xx from '../import'
