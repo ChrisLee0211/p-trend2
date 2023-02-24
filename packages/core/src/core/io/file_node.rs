@@ -1,0 +1,60 @@
+use std::{
+  fs,
+  path::{self, Path},
+};
+
+use serde::{Deserialize, Serialize};
+
+use crate::utils::get_file_name_by_path;
+
+/// 文件节点
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileNode {
+  name: String,
+  pub path: String,
+  pub is_folder: bool,
+  deps: Vec<String>,
+  pkgs: Vec<String>,
+  children: Vec<FileNode>,
+}
+impl FileNode {
+  pub fn new(path: String) -> FileNode {
+    let name = get_file_name_by_path(&path);
+    let is_folder = fs::metadata(&path).unwrap().is_dir();
+    Self {
+      name,
+      path,
+      is_folder,
+      deps: [].to_vec(),
+      pkgs: [].to_vec(),
+      children: [].to_vec(),
+    }
+  }
+
+  pub fn add_deps(&mut self, dep: String) {
+    self.deps.push(dep);
+  }
+
+  pub fn add_child(&mut self, child: FileNode) {
+    self.children.push(child);
+  }
+
+  pub fn set_deps(&mut self, deps: Vec<String>) {
+    for dependence_path in deps.iter() {
+      self.deps.push(dependence_path.to_string())
+    }
+  }
+
+  pub fn get_path(&mut self) -> &Path {
+    return Path::new(&self.path);
+  }
+
+  fn set_name(&mut self, value: String) {
+    self.name = value;
+  }
+
+  pub fn insert_pkg(&mut self, npm:String) {
+    self.pkgs.push(npm);
+}
+}
