@@ -7,6 +7,8 @@ use serde_json;
 use serde::{Serialize, Deserialize};
 use crate::utils::{Stack, get_file_name_by_path, get_enbale_paths, normalize_file_node_path, FileNodePaths, resolve_related_path_to_absoluted_path};
 mod parser;
+mod io;
+use io::file_node;
 
 #[derive(Debug,Clone,Serialize, Deserialize)]
 pub struct FileNode {
@@ -230,8 +232,16 @@ pub fn scan_by_entry(entry: String, alias_config:HashMap<String, String>,npm_pac
     let current_dir = env::current_dir().expect("fail to get current dir pathbuf");
 
     fs::write(current_dir.join("data.json"), json_string).expect("fail to create json");
+
+    let mut new_root_file_node = io::file_node::FileNode::new(entry);
+    let mut new_parser = parser::Parser::new(alias_config, npm_map);
+    dfs(&mut new_root_file_node, &mut new_parser);
     
     println!("{:?}", &root_file_node);
+    println!("=========================");
+    println!("new file tree:{:?}", new_root_file_node);
+    let new_json_string = serde_json::to_string(&new_root_file_node).expect("fail to transform json string");
+    fs::write(current_dir.join("data2.json"), new_json_string).expect("fail to create json");
     Ok(())
 }
 
@@ -272,4 +282,32 @@ pub fn mark_reference(cursor:usize, whole_file_nodes_for_hash:&Rc<RefCell<Vec<Re
         dep_cursor += 1;
     }
 
+}
+
+fn dfs(root_file_node: &mut io::file_node::FileNode, parser: &mut parser::Parser) -> Result<(), Error> {
+    for file in fs::read_dir(root_file_node.get_path())? {
+        let path = file?.path();
+        // 创建文件节点
+        let file_node_path: String = match path.canonicalize() {
+            Ok(path_buffer) => {
+                let absolute_path = path_buffer
+                    .to_str()
+                    .expect("fail to transform path buffer to string")
+                    .to_string();
+                absolute_path
+                // return absolute_path;
+            }
+            Err(_) => todo!(),
+        };
+        let mut child = io::file_node::FileNode::new(file_node_path);
+        if (child.is_folder) {
+            dfs(&mut child, parser);
+        }else {
+            let deps:Vec<String> = parser.parse_deps_by_file_name(&mut child);
+            
+            child.set_deps(deps);
+        }
+        root_file_node.add_child(child);
+    }
+    Ok(())
 }
