@@ -114,48 +114,32 @@ impl NpmPackages {
 }
 
 pub struct ExcludeChecker<'a> {
-  rules: Rc<RefCell<Vec<Rc<Builder<'a>>>>>,
+  rules: Rc<Vec<Rc<Builder<'a>>>>,
 }
 
 impl<'a> ExcludeChecker<'a> {
   pub fn new<'b>(excludes: &'b Vec<String>) -> ExcludeChecker<'b> {
-    let mut vec: Vec<Rc<Builder<'b>>> = vec![];
-    let len = excludes.clone().len();
-    let mut cursor: usize = 0;
-    loop {
-      if cursor == len {
-        break;
-      };
-      vec.push(Rc::new(Builder::new(
-        excludes.get(cursor).expect("fail to get exclude rules"),
-      )));
-      cursor += 1;
-    }
+    let rule_checkers: Vec<Rc<Builder<'b>>> = excludes
+      .iter()
+      .map(|rule| return Rc::new(Builder::new(rule)))
+      .collect();
     return ExcludeChecker {
-      rules: Rc::new(RefCell::new(vec)),
+      rules: Rc::new(rule_checkers),
     };
   }
 
   pub fn check(&self, path: &String) -> bool {
     let mut result = true;
-    let len = self.rules.borrow_mut().len();
-    let mut cursor: usize = 0;
-    loop {
-      if cursor == len {
-        break;
-      };
-      if result == false {
-        break;
-      };
-      result = self
-        .rules
-        .borrow_mut()
-        .get(cursor)
-        .expect("fail to load exclude rule in check method")
+    let rules = &self.rules;
+    for rule in rules.iter() {
+      let check_result = rule
         .build_glob()
-        .expect("fail to build glob")
+        .expect("fail to load exclude rule in check method")
         .is_match(path);
-      cursor += 1;
+      if check_result != result {
+        result = check_result;
+        break;
+      }
     }
     return result;
   }
@@ -363,7 +347,7 @@ fn dfs(
 
       child.set_deps(deps);
     }
-    root_file_node.add_child(child);
+    root_file_node.insert_child(child);
   }
   Ok(())
 }

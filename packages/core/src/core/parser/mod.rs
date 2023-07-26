@@ -79,7 +79,7 @@ impl Parser {
         Box::new(less_parser),
       ],
     };
-    let name = &file_node.path.clone();
+    let name = &file_node.file_path.clone();
     let deps: Vec<String> = parser_plugins.collect_import(name);
     let result:Vec<String> = deps.iter()
                 .map(|dep_path| {
