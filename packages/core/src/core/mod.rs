@@ -1,9 +1,7 @@
 use crate::utils::{
-  get_enbale_paths, get_file_name_by_path, normalize_file_node_path,
-  resolve_related_path_to_absoluted_path, FileNodePaths, Stack,
+  get_enbale_paths, normalize_file_node_path,FileNodePaths,
 };
 use globmatch::Builder;
-use serde::{Deserialize, Serialize};
 use serde_json;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -11,50 +9,8 @@ use std::rc::Rc;
 use std::{env, fs, io::Error};
 mod io;
 mod parser;
-use io::file_node;
+use io::file_node::FileNode;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileNode {
-  file_path: String,
-  file_name: String,
-  is_folder: bool,
-  deps: RefCell<Vec<String>>,
-  pkgs: RefCell<Vec<String>>,
-  parent_path: RefCell<String>,
-  children: RefCell<Vec<Rc<RefCell<FileNode>>>>,
-}
-
-impl FileNode {
-  pub fn new(path: String, name: String, is_folder: bool) -> FileNode {
-    FileNode {
-      file_path: path,
-      file_name: name,
-      is_folder,
-      deps: RefCell::new(vec![]),
-      pkgs: RefCell::new(vec![]),
-      parent_path: RefCell::new(String::from("")),
-      children: RefCell::new(vec![]),
-    }
-  }
-
-  pub fn set_parent(&mut self, path_string: String) {
-    self.parent_path.borrow_mut().push_str(&path_string);
-  }
-
-  pub fn insert_child(&mut self, node: Rc<RefCell<FileNode>>) {
-    self.children.borrow_mut().push(node);
-  }
-
-  pub fn set_deps(&mut self, deps: Vec<String>) {
-    for dependence_path in deps.iter() {
-      self.deps.borrow_mut().push(dependence_path.to_string())
-    }
-  }
-
-  pub fn insert_pkg(&mut self, npm: String) {
-    self.pkgs.borrow_mut().push(npm);
-  }
-}
 
 #[derive(Debug)]
 pub struct FileNodeForHash {
@@ -161,91 +117,23 @@ pub fn scan_by_entry(
   // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
   let mut file_hash_map: HashMap<String, Box<usize>> = HashMap::new();
 
-  // 构建入口file_node用于DFS扫描所有文件
-  let entry_file_name = get_file_name_by_path(&entry);
-  let root_file_node: Rc<RefCell<FileNode>> = Rc::new(RefCell::new(FileNode::new(
-    entry.clone(),
-    entry_file_name,
-    true,
-  )));
 
-  // 利用栈做深度递归
-  let mut stack: Stack<Rc<RefCell<FileNode>>> = Stack::new();
-  stack.push(root_file_node.clone());
-
-  while stack.len > 0 {
-    let current_node = stack.pop().expect("fail to pop file node in stack");
-
-    let current_node_path: String = current_node.borrow_mut().file_path.clone();
-    if exclude_checker.check(&current_node_path) {
-      continue;
+  let mut file_node_hashmap_marker = |node_target: &mut FileNode, node_paths:FileNodePaths| {
+    let file_node_for_hash = FileNodeForHash::new(Rc::new((RefCell::new(node_target.clone()))), Vec::new());
+    whole_file_nodes_for_hash
+      .borrow_mut()
+      .push(RefCell::new(file_node_for_hash));
+    let index = whole_file_nodes_for_hash.borrow_mut().len() - 1;
+    let enable_paths: Vec<String> = get_enbale_paths(&node_paths);
+    for enable_path in enable_paths {
+      file_hash_map.insert(enable_path, Box::new(index));
     }
-    for file in fs::read_dir(current_node_path.clone())? {
-      let file = file?;
-      let path_buffer = file.path();
-      let file_node_paths = normalize_file_node_path(&current_node_path, &path_buffer);
-      let FileNodePaths {
-        normal_path: _,
-        file_name,
-        absolute_path,
-        absolute_path_with_file_name,
-      } = &file_node_paths;
+  };
 
-      if exclude_checker.check(absolute_path_with_file_name) {
-        continue;
-      }
 
-      let is_folder = fs::metadata(&path_buffer)?.file_type().is_dir();
-      let file_node = Rc::new(RefCell::new(FileNode::new(
-        absolute_path_with_file_name.clone(),
-        file_name.clone(),
-        true,
-      )));
-      current_node.borrow_mut().insert_child(file_node.clone());
-      file_node.borrow_mut().set_parent(current_node_path.clone());
-      if is_folder {
-        stack.push(file_node.clone());
-      } else {
-        let file_path_clone = absolute_path_with_file_name.clone();
-        let deps: Vec<String> = parser::parse_deps_by_file_name(&file_path_clone);
-        let normalize_deps: Vec<String> = deps
-          .iter()
-          .map(|dep_path| {
-            //  替换alias路径别名
-            return parser::common::replace_alias_for_import_path(&dep_path, &alias_config);
-          })
-          .filter(|dep_path| {
-            // 移除并标记npm包引用次数
-            let npm = npm_map.check_is_npm_pkg(dep_path);
-            match npm {
-              Some(pkg_name) => {
-                let err_msg = String::from("fail to add npm reference count by") + dep_path;
-                npm_map.add_npm_reference_count(&pkg_name).expect(&err_msg);
-                file_node.borrow_mut().insert_pkg(pkg_name.clone());
-                return false;
-              }
-              None => true,
-            }
-          })
-          .map(|dep_path| {
-            return resolve_related_path_to_absoluted_path(&dep_path, &absolute_path);
-          })
-          .collect();
-        // println!("deps ==>{:?},file name ===>{:?} , path ===>{:?}, absoluted path ===> {:?}",&deps,&file_name, &file_path_clone, &absolute_path);
-        let reference_path: Vec<String> = vec![];
-        file_node.borrow_mut().set_deps(normalize_deps);
-        let file_node_for_hash = FileNodeForHash::new(file_node.clone(), reference_path);
-        whole_file_nodes_for_hash
-          .borrow_mut()
-          .push(RefCell::new(file_node_for_hash));
-        let index = whole_file_nodes_for_hash.borrow_mut().len() - 1;
-        let enable_paths: Vec<String> = get_enbale_paths(&file_node_paths);
-        for enable_path in enable_paths {
-          file_hash_map.insert(enable_path, Box::new(index));
-        }
-      }
-    }
-  }
+  let mut root_file_node = FileNode::new(entry);
+  let mut parser = parser::Parser::new(alias_config, npm_map);
+  dfs(&mut root_file_node, &mut parser, &mut file_node_hashmap_marker)?;
 
   let file_nodes_count = whole_file_nodes_for_hash.borrow().len();
   let mut loop_cursor: usize = 0;
@@ -257,21 +145,10 @@ pub fn scan_by_entry(
     loop_cursor += 1;
   }
   let json_string =
-    serde_json::to_string(&root_file_node.borrow().clone()).expect("fail to transform json string");
+    serde_json::to_string(&root_file_node.clone()).expect("fail to transform json string");
   let current_dir = env::current_dir().expect("fail to get current dir pathbuf");
 
   fs::write(current_dir.join("data.json"), json_string).expect("fail to create json");
-
-  let mut new_root_file_node = io::file_node::FileNode::new(entry);
-  let mut new_parser = parser::Parser::new(alias_config, npm_map);
-  dfs(&mut new_root_file_node, &mut new_parser);
-
-  println!("{:?}", &root_file_node);
-  println!("=========================");
-  println!("new file tree:{:?}", new_root_file_node);
-  let new_json_string =
-    serde_json::to_string(&new_root_file_node).expect("fail to transform json string");
-  fs::write(current_dir.join("data2.json"), new_json_string).expect("fail to create json");
   Ok(())
 }
 
@@ -291,7 +168,7 @@ pub fn mark_reference(
   let file_node_path = node.borrow_mut().file_path.clone();
   let deps = node.borrow_mut().deps.clone();
 
-  let deps_len = deps.borrow().len();
+  let deps_len = deps.len();
 
   let mut dep_cursor: usize = 0;
 
@@ -300,7 +177,6 @@ pub fn mark_reference(
       break;
     } else {
       let dep = deps
-        .borrow_mut()
         .get(dep_cursor)
         .expect("fail to get deps by whole_file_nodes_for_hash")
         .clone();
@@ -321,33 +197,33 @@ pub fn mark_reference(
   }
 }
 
-fn dfs(
-  root_file_node: &mut io::file_node::FileNode,
+fn dfs<F> (
+  current_node: &mut FileNode,
   parser: &mut parser::Parser,
-) -> Result<(), Error> {
-  for file in fs::read_dir(root_file_node.get_path())? {
-    let path = file?.path();
+  reference_marker:&mut F
+) -> Result<(), Error>  where F: FnMut(&mut FileNode, FileNodePaths)  {
+let current_node_path = current_node.file_path.clone();
+  for file in fs::read_dir(current_node.get_path())? {
+    let path_buffer = file?.path();
+    let file_node_paths = normalize_file_node_path(&current_node_path, &path_buffer);
+    let FileNodePaths {
+        normal_path: _,
+        file_name:_,
+        absolute_path:_,
+        absolute_path_with_file_name,
+      } = &file_node_paths;
     // 创建文件节点
-    let file_node_path: String = match path.canonicalize() {
-      Ok(path_buffer) => {
-        let absolute_path = path_buffer
-          .to_str()
-          .expect("fail to transform path buffer to string")
-          .to_string();
-        absolute_path
-        // return absolute_path;
-      }
-      Err(_) => todo!(),
-    };
-    let mut child = io::file_node::FileNode::new(file_node_path);
-    if (child.is_folder) {
-      dfs(&mut child, parser);
+    let file_node_path: String = absolute_path_with_file_name.to_string();
+    let mut child = FileNode::new(file_node_path);
+    if child.is_folder {
+      dfs(&mut child, parser, reference_marker)?;
     } else {
       let deps: Vec<String> = parser.parse_deps_by_file_name(&mut child);
-
       child.set_deps(deps);
+      reference_marker(&mut child,file_node_paths);
     }
-    root_file_node.insert_child(child);
+    child.set_parent(current_node.file_path.clone());
+    current_node.insert_child(child);
   }
   Ok(())
 }

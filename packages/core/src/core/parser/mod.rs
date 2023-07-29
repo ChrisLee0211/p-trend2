@@ -56,17 +56,11 @@ pub fn parse_deps_by_file_name(name: &String) -> Vec<String> {
 pub struct Parser {
   pub alias_config: HashMap<String, String>,
   pub npm_map: NpmPackages,
+  parser_plugins:Plugins
 }
 
 impl Parser {
   pub fn new(alias_config: HashMap<String, String>, npm_map: NpmPackages) -> Parser {
-    Self {
-      alias_config,
-      npm_map,
-    }
-  }
-
-  pub fn parse_deps_by_file_name(&mut self, file_node: &mut io::file_node::FileNode) -> Vec<String> {
     let js_parser = js_plugin::init_parser();
     let ts_parser = ts_plugin::init_parser();
     let vue_parser = vue_plugin::init_parser();
@@ -79,8 +73,16 @@ impl Parser {
         Box::new(less_parser),
       ],
     };
+    Self {
+      alias_config,
+      npm_map,
+      parser_plugins
+    }
+  }
+
+  pub fn parse_deps_by_file_name(&mut self, file_node: &mut io::file_node::FileNode) -> Vec<String> {
     let name = &file_node.file_path.clone();
-    let deps: Vec<String> = parser_plugins.collect_import(name);
+    let deps: Vec<String> = self.parser_plugins.collect_import(name);
     let result:Vec<String> = deps.iter()
                 .map(|dep_path| {
                     //  替换alias路径别名
@@ -88,11 +90,11 @@ impl Parser {
                 })
                 .filter(|dep_path| {
                     // 移除并标记npm包引用次数
-                    let npm = &self.npm_map.check_is_npm_pkg(dep_path);
+                    let npm = self.npm_map.check_is_npm_pkg(dep_path);
                     match npm {
                         Some(pkg_name) => {
                             let err_msg = String::from("fail to add npm reference count by") + dep_path;
-                            &self.npm_map.add_npm_reference_count(&pkg_name).expect(&err_msg);
+                            self.npm_map.add_npm_reference_count(&pkg_name).expect(&err_msg);
                             file_node.insert_pkg(pkg_name.clone());
                             return false;
                         }
