@@ -5,6 +5,10 @@ use regex::Error;
 use crate::utils::resolve_related_path_to_absoluted_path;
 
 use super::{NpmPackages, io};
+
+mod utils;
+use utils::{exclude::ExcludeChecker};
+
 pub mod common;
 mod js_plugin;
 mod less_plugin;
@@ -35,32 +39,17 @@ impl Plugins {
   }
 }
 
-pub fn parse_deps_by_file_name(name: &String) -> Vec<String> {
-  let js_parser = js_plugin::init_parser();
-  let ts_parser = ts_plugin::init_parser();
-  let vue_parser = vue_plugin::init_parser();
-  let less_parser = less_plugin::init_parser();
-  let parser_plugins = Plugins {
-    plugins: vec![
-      Box::new(js_parser),
-      Box::new(ts_parser),
-      Box::new(vue_parser),
-      Box::new(less_parser),
-    ],
-  };
-  let result: Vec<String> = parser_plugins.collect_import(name);
-  result
-}
-
 /// 解析器
-pub struct Parser {
+pub struct Parser <'a>{
   pub alias_config: HashMap<String, String>,
+  pub exclude_checker:ExcludeChecker<'a>,
+  // pub alias_checker:AliasChecker,
   pub npm_map: NpmPackages,
   parser_plugins:Plugins
 }
 
-impl Parser {
-  pub fn new(alias_config: HashMap<String, String>, npm_map: NpmPackages) -> Parser {
+impl <'a> Parser<'a> {
+  pub fn new(alias_config: HashMap<String, String>, excludes:&'a Vec<String>,npm_map: NpmPackages) -> Parser<'a> {
     let js_parser = js_plugin::init_parser();
     let ts_parser = ts_plugin::init_parser();
     let vue_parser = vue_plugin::init_parser();
@@ -73,7 +62,9 @@ impl Parser {
         Box::new(less_parser),
       ],
     };
+    let exclude_checker: ExcludeChecker<'a> = ExcludeChecker::new(&excludes);
     Self {
+      exclude_checker,
       alias_config,
       npm_map,
       parser_plugins
@@ -100,6 +91,11 @@ impl Parser {
                         }
                         None => true
                     }
+                })
+                .filter(|dep_path| {
+                  // 移除命中exclude的依赖
+                 return self.exclude_checker.check(&dep_path) == false;
+
                 })
                 .map(|dep_path| {
                     return resolve_related_path_to_absoluted_path(&dep_path, name);

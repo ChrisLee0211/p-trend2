@@ -1,7 +1,7 @@
 use crate::utils::{
-  get_enbale_paths, normalize_file_node_path,FileNodePaths,
+  get_enbale_paths, normalize_file_node_path, resolve_related_path_to_absoluted_path, FileNodePaths,
 };
-use globmatch::Builder;
+
 use serde_json;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -10,7 +10,6 @@ use std::{env, fs, io::Error};
 mod io;
 mod parser;
 use io::file_node::FileNode;
-
 
 #[derive(Debug)]
 pub struct FileNodeForHash {
@@ -69,37 +68,7 @@ impl NpmPackages {
   }
 }
 
-pub struct ExcludeChecker<'a> {
-  rules: Rc<Vec<Rc<Builder<'a>>>>,
-}
 
-impl<'a> ExcludeChecker<'a> {
-  pub fn new<'b>(excludes: &'b Vec<String>) -> ExcludeChecker<'b> {
-    let rule_checkers: Vec<Rc<Builder<'b>>> = excludes
-      .iter()
-      .map(|rule| return Rc::new(Builder::new(rule)))
-      .collect();
-    return ExcludeChecker {
-      rules: Rc::new(rule_checkers),
-    };
-  }
-
-  pub fn check(&self, path: &String) -> bool {
-    let mut result = true;
-    let rules = &self.rules;
-    for rule in rules.iter() {
-      let check_result = rule
-        .build_glob()
-        .expect("fail to load exclude rule in check method")
-        .is_match(path);
-      if check_result != result {
-        result = check_result;
-        break;
-      }
-    }
-    return result;
-  }
-}
 
 pub fn scan_by_entry(
   entry: String,
@@ -107,19 +76,17 @@ pub fn scan_by_entry(
   npm_packages: Vec<String>,
   excludes: Vec<String>,
 ) -> Result<(), Error> {
-  // 用于过滤exclude规则文件
-  let exclude_checker = ExcludeChecker::new(&excludes);
   // 用于收集npm package依赖引用
-  let mut npm_map = NpmPackages::new(npm_packages);
+  let npm_map = NpmPackages::new(npm_packages);
   // 存储所有解析出来的fileNode的列表
   let whole_file_nodes_for_hash: Rc<RefCell<Vec<RefCell<FileNodeForHash>>>> =
     Rc::new(RefCell::new(vec![]));
   // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
   let mut file_hash_map: HashMap<String, Box<usize>> = HashMap::new();
 
-
-  let mut file_node_hashmap_marker = |node_target: &mut FileNode, node_paths:FileNodePaths| {
-    let file_node_for_hash = FileNodeForHash::new(Rc::new((RefCell::new(node_target.clone()))), Vec::new());
+  let mut file_node_hashmap_marker = |node_target: &mut FileNode, node_paths: FileNodePaths| {
+    let file_node_for_hash =
+      FileNodeForHash::new(Rc::new(RefCell::new(node_target.clone())), Vec::new());
     whole_file_nodes_for_hash
       .borrow_mut()
       .push(RefCell::new(file_node_for_hash));
@@ -130,10 +97,19 @@ pub fn scan_by_entry(
     }
   };
 
-
-  let mut root_file_node = FileNode::new(entry);
-  let mut parser = parser::Parser::new(alias_config, npm_map);
-  dfs(&mut root_file_node, &mut parser, &mut file_node_hashmap_marker)?;
+  let current_dir_path = env::current_dir()
+    .expect("Fail to get current work dir pathbuf")
+    .to_str()
+    .expect("Fail to transform current dir pathbuf to string")
+    .to_string();
+  let normalize_entry = resolve_related_path_to_absoluted_path(&entry, &current_dir_path);
+  let mut root_file_node = FileNode::new(normalize_entry);
+  let mut parser = parser::Parser::new(alias_config,&excludes, npm_map);
+  build_file_node(
+    &mut root_file_node,
+    &mut parser,
+    &mut file_node_hashmap_marker,
+  )?;
 
   let file_nodes_count = whole_file_nodes_for_hash.borrow().len();
   let mut loop_cursor: usize = 0;
@@ -197,30 +173,40 @@ pub fn mark_reference(
   }
 }
 
-fn dfs<F> (
+/**
+ * 构建文件节点树，并生成生成关系
+ * 
+ */
+fn build_file_node<F>(
   current_node: &mut FileNode,
   parser: &mut parser::Parser,
-  reference_marker:&mut F
-) -> Result<(), Error>  where F: FnMut(&mut FileNode, FileNodePaths)  {
-let current_node_path = current_node.file_path.clone();
+  reference_marker: &mut F,
+) -> Result<(), Error>
+where
+  F: FnMut(&mut FileNode, FileNodePaths),
+{
+  let current_node_path = current_node.file_path.clone();
   for file in fs::read_dir(current_node.get_path())? {
     let path_buffer = file?.path();
     let file_node_paths = normalize_file_node_path(&current_node_path, &path_buffer);
     let FileNodePaths {
-        normal_path: _,
-        file_name:_,
-        absolute_path:_,
-        absolute_path_with_file_name,
-      } = &file_node_paths;
+      normal_path: _,
+      file_name: _,
+      absolute_path: _,
+      absolute_path_with_file_name,
+    } = &file_node_paths;
     // 创建文件节点
     let file_node_path: String = absolute_path_with_file_name.to_string();
+    if parser.exclude_checker.check(&file_node_path) == true {
+        continue;
+    }
     let mut child = FileNode::new(file_node_path);
     if child.is_folder {
-      dfs(&mut child, parser, reference_marker)?;
+      build_file_node(&mut child, parser, reference_marker)?;
     } else {
       let deps: Vec<String> = parser.parse_deps_by_file_name(&mut child);
       child.set_deps(deps);
-      reference_marker(&mut child,file_node_paths);
+      reference_marker(&mut child, file_node_paths);
     }
     child.set_parent(current_node.file_path.clone());
     current_node.insert_child(child);
