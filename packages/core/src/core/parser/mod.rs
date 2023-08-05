@@ -4,10 +4,12 @@ use regex::Error;
 
 use crate::utils::resolve_related_path_to_absoluted_path;
 
-use super::{NpmPackages, io};
+use self::utils::alias::AliasChecker;
+
+use super::{io, NpmPackages};
 
 mod utils;
-use utils::{exclude::ExcludeChecker};
+use utils::exclude::ExcludeChecker;
 
 pub mod common;
 mod js_plugin;
@@ -40,16 +42,19 @@ impl Plugins {
 }
 
 /// 解析器
-pub struct Parser <'a>{
-  pub alias_config: HashMap<String, String>,
-  pub exclude_checker:ExcludeChecker<'a>,
-  // pub alias_checker:AliasChecker,
+pub struct Parser<'a> {
+  pub exclude_checker: ExcludeChecker<'a>,
+  pub alias_checker: AliasChecker,
   pub npm_map: NpmPackages,
-  parser_plugins:Plugins
+  parser_plugins: Plugins,
 }
 
-impl <'a> Parser<'a> {
-  pub fn new(alias_config: HashMap<String, String>, excludes:&'a Vec<String>,npm_map: NpmPackages) -> Parser<'a> {
+impl<'a> Parser<'a> {
+  pub fn new(
+    alias_config: HashMap<String, String>,
+    excludes: &'a Vec<String>,
+    npm_map: NpmPackages,
+  ) -> Parser<'a> {
     let js_parser = js_plugin::init_parser();
     let ts_parser = ts_plugin::init_parser();
     let vue_parser = vue_plugin::init_parser();
@@ -63,44 +68,51 @@ impl <'a> Parser<'a> {
       ],
     };
     let exclude_checker: ExcludeChecker<'a> = ExcludeChecker::new(&excludes);
+    let alias_checker = AliasChecker::new(&alias_config);
     Self {
       exclude_checker,
-      alias_config,
+      alias_checker,
       npm_map,
-      parser_plugins
+      parser_plugins,
     }
   }
 
-  pub fn parse_deps_by_file_name(&mut self, file_node: &mut io::file_node::FileNode) -> Vec<String> {
+  pub fn parse_deps_by_file_name(
+    &mut self,
+    file_node: &mut io::file_node::FileNode,
+  ) -> Vec<String> {
     let name = &file_node.file_path.clone();
     let deps: Vec<String> = self.parser_plugins.collect_import(name);
-    let result:Vec<String> = deps.iter()
-                .map(|dep_path| {
-                    //  替换alias路径别名
-                    return common::replace_alias_for_import_path(&dep_path, &self.alias_config)
-                })
-                .filter(|dep_path| {
-                    // 移除并标记npm包引用次数
-                    let npm = self.npm_map.check_is_npm_pkg(dep_path);
-                    match npm {
-                        Some(pkg_name) => {
-                            let err_msg = String::from("fail to add npm reference count by") + dep_path;
-                            self.npm_map.add_npm_reference_count(&pkg_name).expect(&err_msg);
-                            file_node.insert_pkg(pkg_name.clone());
-                            return false;
-                        }
-                        None => true
-                    }
-                })
-                .filter(|dep_path| {
-                  // 移除命中exclude的依赖
-                 return self.exclude_checker.check(&dep_path) == false;
-
-                })
-                .map(|dep_path| {
-                    return resolve_related_path_to_absoluted_path(&dep_path, name);
-                })
-                .collect();
+    let result: Vec<String> = deps
+      .iter()
+      .filter(|dep_path| {
+        // 移除并标记npm包引用次数
+        let npm = self.npm_map.check_is_npm_pkg(dep_path);
+        match npm {
+          Some(pkg_name) => {
+            let err_msg = String::from("fail to add npm reference count by") + dep_path;
+            self
+              .npm_map
+              .add_npm_reference_count(&pkg_name)
+              .expect(&err_msg);
+            file_node.insert_pkg(pkg_name.clone());
+            return false;
+          }
+          None => true,
+        }
+      })
+      .filter(|dep_path| {
+        // 移除命中exclude的依赖
+        return self.exclude_checker.check(&dep_path) == false;
+      })
+      .map(|dep_path| {
+        //  替换alias路径别名
+        if self.alias_checker.check(&dep_path) {
+          return self.alias_checker.replace(&dep_path);
+        }
+        return resolve_related_path_to_absoluted_path(&dep_path, name);
+      })
+      .collect();
     result
   }
 }
