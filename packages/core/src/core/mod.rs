@@ -12,16 +12,16 @@ mod parser;
 use io::file_node::FileNode;
 
 #[derive(Debug)]
-pub struct FileNodeForHash {
+pub struct ModuleNode {
   // 节点指向
   node: Rc<RefCell<FileNode>>,
   // 被引用的节点path
   reference_path: Rc<RefCell<Vec<String>>>,
 }
 
-impl FileNodeForHash {
-  pub fn new(node: Rc<RefCell<FileNode>>, reference_path: Vec<String>) -> FileNodeForHash {
-    FileNodeForHash {
+impl ModuleNode {
+  pub fn new(node: Rc<RefCell<FileNode>>, reference_path: Vec<String>) -> ModuleNode {
+    ModuleNode {
       node,
       reference_path: Rc::new(RefCell::new(reference_path)),
     }
@@ -78,24 +78,12 @@ pub fn scan_by_entry(
 ) -> Result<(), Error> {
   // 用于收集npm package依赖引用
   let npm_map = NpmPackages::new(npm_packages);
-  // 存储所有解析出来的fileNode的列表
-  let whole_file_nodes_for_hash: Rc<RefCell<Vec<RefCell<FileNodeForHash>>>> =
+  // 存储所有解析出来的moduleNode的列表
+  let module_node_list: Rc<RefCell<Vec<RefCell<ModuleNode>>>> =
     Rc::new(RefCell::new(vec![]));
-  // file_hash_map可以通过路径获取索引，然后去whole_file_nodes_for_hash找到真正的唯一的fileNode
+  // file_hash_map可以通过路径获取索引，然后去module_node_list找到真正的唯一的fileNode
+  // 设计原因：因为可能有多个引用路径指向同一个fileNode
   let mut file_hash_map: HashMap<String, Box<usize>> = HashMap::new();
-
-  let mut file_node_hashmap_marker = |node_target: &mut FileNode, node_paths: FileNodePaths| {
-    let file_node_for_hash =
-      FileNodeForHash::new(Rc::new(RefCell::new(node_target.clone())), Vec::new());
-    whole_file_nodes_for_hash
-      .borrow_mut()
-      .push(RefCell::new(file_node_for_hash));
-    let index = whole_file_nodes_for_hash.borrow_mut().len() - 1;
-    let enable_paths: Vec<String> = get_enbale_paths(&node_paths);
-    for enable_path in enable_paths {
-      file_hash_map.insert(enable_path, Box::new(index));
-    }
-  };
 
   let current_dir_path = env::current_dir()
     .expect("Fail to get current work dir pathbuf")
@@ -105,19 +93,33 @@ pub fn scan_by_entry(
   let normalize_entry = resolve_related_path_to_absoluted_path(&entry, &current_dir_path);
   let mut root_file_node = FileNode::new(normalize_entry);
   let mut parser = parser::Parser::new(alias_config,&excludes, npm_map);
+
+  let mut file_node_hashmap_marker = |node_target: &mut FileNode, node_paths: FileNodePaths| {
+    let file_node_for_hash =
+      ModuleNode::new(Rc::new(RefCell::new(node_target.clone())), Vec::new());
+    module_node_list
+      .borrow_mut()
+      .push(RefCell::new(file_node_for_hash));
+    let index = module_node_list.borrow_mut().len() - 1;
+    let enable_paths: Vec<String> = get_enbale_paths(&node_paths);
+    for enable_path in enable_paths {
+      file_hash_map.insert(enable_path, Box::new(index));
+    }
+  };
+  
   build_file_node(
     &mut root_file_node,
     &mut parser,
     &mut file_node_hashmap_marker,
   )?;
 
-  let file_nodes_count = whole_file_nodes_for_hash.borrow().len();
+  let file_nodes_count = module_node_list.borrow().len();
   let mut loop_cursor: usize = 0;
   loop {
     if loop_cursor == file_nodes_count {
       break;
     }
-    mark_reference(loop_cursor, &whole_file_nodes_for_hash, &file_hash_map);
+    mark_reference(loop_cursor, &module_node_list, &file_hash_map);
     loop_cursor += 1;
   }
   let json_string =
@@ -130,13 +132,13 @@ pub fn scan_by_entry(
 
 pub fn mark_reference(
   cursor: usize,
-  whole_file_nodes_for_hash: &Rc<RefCell<Vec<RefCell<FileNodeForHash>>>>,
+  module_node_list: &Rc<RefCell<Vec<RefCell<ModuleNode>>>>,
   file_hash_map: &HashMap<String, Box<usize>>,
 ) {
-  let node = whole_file_nodes_for_hash
+  let node = module_node_list
     .borrow_mut()
     .get(cursor)
-    .expect("fail to get deps by whole_file_nodes_for_hash")
+    .expect("fail to get deps by module_node_list")
     .borrow_mut()
     .node
     .clone();
@@ -154,12 +156,12 @@ pub fn mark_reference(
     } else {
       let dep = deps
         .get(dep_cursor)
-        .expect("fail to get deps by whole_file_nodes_for_hash")
+        .expect("fail to get deps by module_node_list")
         .clone();
       let target_index = file_hash_map.get(&dep);
       match target_index {
         Some(index) => {
-          whole_file_nodes_for_hash
+          module_node_list
             .borrow_mut()
             .get(*index.clone())
             .expect("fail to get file_node_for_hash by index")

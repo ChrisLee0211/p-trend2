@@ -29,13 +29,13 @@ pub struct Plugins {
 
 impl Plugins {
   /// 收集依赖
-  pub fn collect_import(&self, name: &String) -> Vec<String> {
+  pub fn collect_import(&self, file_path: &String) -> Vec<String> {
     let mut result: Vec<String> = vec![];
     for plugin in self.plugins.iter() {
       if &result.len() != &0 {
         break;
       }
-      result = plugin.parse_import(name);
+      result = plugin.parse_import(file_path);
     }
     return result;
   }
@@ -81,8 +81,8 @@ impl<'a> Parser<'a> {
     &mut self,
     file_node: &mut io::file_node::FileNode,
   ) -> Vec<String> {
-    let name = &file_node.file_path.clone();
-    let deps: Vec<String> = self.parser_plugins.collect_import(name);
+    let file_path = &file_node.file_path.clone();
+    let deps: Vec<String> = self.parser_plugins.collect_import(file_path);
     let result: Vec<String> = deps
       .iter()
       .filter(|dep_path| {
@@ -110,7 +110,7 @@ impl<'a> Parser<'a> {
         if self.alias_checker.check(&dep_path) {
           return self.alias_checker.replace(&dep_path);
         }
-        return resolve_related_path_to_absoluted_path(&dep_path, name);
+        return resolve_related_path_to_absoluted_path(&dep_path, file_path);
       })
       .collect();
     result

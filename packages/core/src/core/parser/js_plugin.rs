@@ -1,7 +1,7 @@
 use regex::{Regex, Error};
 use std::{path::Path, sync::Arc,};
 use super::{ParserMethods};
-use swc_ecma_parser::{parse_file_as_module};
+use swc_ecma_parser::{parse_file_as_module, Syntax, EsConfig};
 use swc_common::{
     SourceMap,
 };
@@ -28,15 +28,18 @@ impl ParserMethods for JsParser {
         match code_type {
             Ok(res) => {
                 if res {
-                    let cm = Arc::<SourceMap>::default();
+                    let cm: Arc<SourceMap> = Arc::<SourceMap>::default();
                     let error_msg = String::from("failed to load file by") + path;
                     let fm = cm
                         .load_file(Path::new(path))
                         .expect(&error_msg);
                     let parse_error_message = String::from("Fail to parse code") + path;
+                    let mut default_es_config = EsConfig::default();
+                    default_es_config.jsx = true;
+                    let syntax_option = Syntax::Es(default_es_config);
                     let module = parse_file_as_module(
                         &fm, 
-                        Default::default(),
+                        syntax_option,
                         Default::default(),
                         None,
                         &mut vec![]).expect(&parse_error_message);
