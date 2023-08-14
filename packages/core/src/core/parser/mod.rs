@@ -14,7 +14,6 @@ use utils::exclude::ExcludeChecker;
 pub mod common;
 mod js_plugin;
 mod less_plugin;
-mod ts_plugin;
 mod vue_plugin;
 
 pub trait ParserMethods {
@@ -56,13 +55,11 @@ impl<'a> Parser<'a> {
     npm_map: NpmPackages,
   ) -> Parser<'a> {
     let js_parser = js_plugin::init_parser();
-    let ts_parser = ts_plugin::init_parser();
     let vue_parser = vue_plugin::init_parser();
     let less_parser = less_plugin::init_parser();
     let parser_plugins = Plugins {
       plugins: vec![
         Box::new(js_parser),
-        Box::new(ts_parser),
         Box::new(vue_parser),
         Box::new(less_parser),
       ],

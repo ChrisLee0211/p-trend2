@@ -1,7 +1,7 @@
 use regex::{Regex, Error};
 use std::{path::Path, sync::Arc,};
 use super::{ParserMethods};
-use swc_ecma_parser::{parse_file_as_module, Syntax, EsConfig};
+use swc_ecma_parser::{parse_file_as_module, Syntax, TsConfig};
 use swc_common::{
     SourceMap,
 };
@@ -15,7 +15,8 @@ pub struct JsParser {
 impl ParserMethods for JsParser {
     fn match_code_type(&self, name:&String) -> Result<bool, Error> {
         let js_reg = Regex::new(self.rule)?;
-        if js_reg.is_match(name) {
+        let dts_reg = Regex::new(r"\.\d\.ts")?;
+        if js_reg.is_match(name) && dts_reg.is_match(name)==false {
             return Ok(true)
          } else {
             return Ok(false)
@@ -34,9 +35,7 @@ impl ParserMethods for JsParser {
                         .load_file(Path::new(path))
                         .expect(&error_msg);
                     let parse_error_message = String::from("Fail to parse code") + path;
-                    let mut default_es_config = EsConfig::default();
-                    default_es_config.jsx = true;
-                    let syntax_option = Syntax::Es(default_es_config);
+                    let syntax_option = Syntax::Typescript(TsConfig {tsx:true, decorators:true,dts:false,no_early_errors:false});
                     let module = parse_file_as_module(
                         &fm, 
                         syntax_option,
@@ -56,5 +55,5 @@ impl ParserMethods for JsParser {
 }
 
 pub fn init_parser() -> JsParser {
-    return JsParser { rule:r"\.(js|jsx)$" }
+    return JsParser { rule:r"\.(js|jsx|ts|tsx)$" }
 }
